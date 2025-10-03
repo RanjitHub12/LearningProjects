@@ -1,0 +1,28 @@
+# Ignore Visual Studio Code configuration files
+.vscode/
+
+# Ignore compiled Java class files and archives
+*.class
+*.jar
+*.war
+*.ear
+
+# Ignore Java log files
+*.log
+
+# Ignore Python virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# Ignore files containing sensitive environment variables
+.env
+
+# Ignore OS-specific files
+Thumbs.db
+.DS_Store
