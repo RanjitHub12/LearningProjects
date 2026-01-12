@@ -26,3 +26,16 @@ __pycache__/
 # Ignore OS-specific files
 Thumbs.db
 .DS_Store
+
+# --- Project Specific Ignores ---
+
+# Jupyter Notebook junk
+.ipynb_checkpoints/
+
+# Heavy Datasets (Do not push these)
+Agriculture Project/DataSet/
+
+# Large Model weights (Optional: Comment out if files are small)
+Agriculture Project/models/*.pth
+Agriculture Project/models/*.pkl
+Agriculture Project/models/*.joblib
