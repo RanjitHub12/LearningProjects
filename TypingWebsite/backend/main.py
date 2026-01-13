@@ -182,3 +182,11 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(databa
         "total_words_in_db": db.query(models.Word).count()
     }
 
+
+if __name__ == "__main__":
+    import os
+    import uvicorn
+
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
+
