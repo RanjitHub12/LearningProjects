@@ -8,6 +8,7 @@ from spellchecker import SpellChecker
 from better_profanity import profanity # NEW IMPORT
 import models, database, re
 from contextlib import asynccontextmanager
+import logging
 
 # --- SECURITY SETUP ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -21,7 +22,11 @@ profanity.load_censor_words() # Load the default list of bad words
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # This runs when the server starts
-    models.Base.metadata.create_all(bind=database.engine)
+    try:
+        models.Base.metadata.create_all(bind=database.engine)
+    except Exception:
+        logging.exception("Failed to create tables during startup — DB may be unavailable.")
+    # Continue startup even if DB/table creation failed so the container doesn't crash with 502
     yield
     # This runs when the server stops (optional cleanup)
 
