@@ -51,6 +51,12 @@ class ScoreCreate(BaseModel):
     accuracy: int
 
 # --- AUTH ENDPOINTS (No Changes) ---
+
+@app.get("/")
+def read_root():
+    return {"message": "Typing website API is running"}
+
+
 @app.post("/api/register")
 def register(user: UserCreate, db: Session = Depends(database.get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
