@@ -29,13 +29,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# --- FINAL VERCEL FIX ---
-# 1. USERNAME: postgres.tdlyfcxgwhcmzdeczuxg (Supabase Pooler requires project name in user)
-# 2. PASSWORD: TypingTest1213
-# 3. HOST: aws-0-ap-south-1.pooler.supabase.com (The Pooler URL)
-# 4. PORT: 6543 (Required for Vercel)
-# 5. SSL: Required
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres.tdlyfcxgwhcmzdeczuxg:TypingTest1213@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
+# --- CORRECTED DATABASE URL ---
+# Based on your screenshot: aws-1-ap-southeast-1.pooler.supabase.com
+# Port: 6543
+# Database: postgres
+# SSL Mode: require (Essential for Vercel)
+
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres.tdlyfcxgwhcmzdeczuxg:TypingTest1213@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
