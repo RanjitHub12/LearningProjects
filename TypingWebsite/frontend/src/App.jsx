@@ -25,6 +25,9 @@ function App() {
   // NEW: Graph State
   const [graphData, setGraphData] = useState([]);
 
+  // API base (fallback to localhost if env var missing)
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
   // --- 1. CHECK FOR SAVED USER ON LOAD ---
   useEffect(() => {
     const savedUser = localStorage.getItem("typing_user");
@@ -39,14 +42,12 @@ function App() {
     e.preventDefault();
     try {
       let userData;
-      const baseURL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-       
-      
+
       if (authMode === "login") {
-        const res = await axios.post(`${baseURL}/api/login`, { email, password });
+        const res = await axios.post(`${API_BASE}/api/login`, { email, password });
         userData = { id: res.data.user_id, username: res.data.username };
       } else {
-        const res = await axios.post(`${baseURL}/api/register`, { username, email, password });
+        const res = await axios.post(`${API_BASE}/api/register`, { username, email, password });
         userData = { id: res.data.user_id, username: res.data.username };
       }
       
@@ -70,7 +71,7 @@ function App() {
   // --- GAME FUNCTIONS ---
   const fetchLeaderboard = async () => {
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/leaderboard`);
+      const res = await axios.get(`${API_BASE}/api/leaderboard`);
       setLeaderboard(res.data);
     } catch (error) { console.error(error); }
   };
@@ -79,7 +80,7 @@ function App() {
   const fetchGraphData = async () => {
     if (!user) return;
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/user-history/${user.id}`);
+      const res = await axios.get(`${API_BASE}/api/user-history/${user.id}`);
       setGraphData(res.data);
     } catch (error) {
       console.error("Error fetching graph data:", error);
@@ -92,8 +93,8 @@ function App() {
     setIsFinished(false);
     setStatusMsg(""); 
     setText("Loading...".split(""));
-    try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/get-text`);
+      try {
+      const res = await axios.get(`${API_BASE}/api/get-text`);
       setText(res.data.content.split(""));
     } catch (error) {
       setText("fallback text example".split(""));
@@ -141,7 +142,7 @@ function App() {
 
     try {
       setStatusMsg("Saving...");
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/save-score`, {
+      await axios.post(`${API_BASE}/api/save-score`, {
         user_id: user.id, 
         wpm: finalWpm,
         accuracy: finalAcc
@@ -160,7 +161,7 @@ function App() {
     if (!file) return;
     const formData = new FormData();
     formData.append("file", file);
-    await axios.post(`${import.meta.env.VITE_API_URL}/api/upload`, formData);
+    await axios.post(`${API_BASE}/api/upload`, formData);
     alert("Vocabulary Updated!");
     resetGame();
   };
