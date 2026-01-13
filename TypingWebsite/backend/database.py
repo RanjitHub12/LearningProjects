@@ -35,7 +35,7 @@ from sqlalchemy.orm import sessionmaker
 # 3. HOST: aws-0-ap-south-1.pooler.supabase.com (The Pooler URL)
 # 4. PORT: 6543 (Required for Vercel)
 # 5. SSL: Required
-SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres.tdlyfcxgwhcmzdeczuxg:TypingTest1213@aws-0-ap-south-1.pooler.supabase.com:6543/postgres?sslmode=require"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres.tdlyfcxgwhcmzdeczuxg:TypingTest1213@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
