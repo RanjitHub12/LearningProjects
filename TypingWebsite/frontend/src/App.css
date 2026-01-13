@@ -1,0 +1,106 @@
+/* Update the top part of App.css */
+body {
+  background-color: #323437;
+  color: #646669;
+  font-family: 'Roboto Mono', monospace;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Add this to ensure React takes full width */
+#root {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  text-align: center;
+  width: 90%; 
+  max-width: 1200px; /* Reduced slightly for better looks */
+}
+body {
+  background-color: #323437;
+  color: #646669;
+  font-family: 'Roboto Mono', monospace; /* Monospace is better for typing spacing */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+.container {
+  text-align: center;
+  /* CHANGE: This makes it cover 90% of the screen width */
+  width: 90%; 
+  max-width: 1400px;
+}
+
+h1 {
+  color: #e2b714;
+  margin-bottom: 10px;
+}
+
+.stats-box {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+  color: #e2b714;
+  padding: 0 20px;
+}
+
+.word-display {
+  font-size: 2rem;
+  line-height: 1.6;
+  text-align: center;
+  background-color: #2c2e31;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+  min-height: 100px;
+  word-wrap: break-word;
+  user-select: none;
+  cursor: text;
+}
+
+/* Character Colors */
+.char {
+  color: #646669;
+  border-bottom: 2px solid transparent; /* Keeps spacing consistent */
+}
+
+.char.correct {
+  color: #d1d0c5; /* Whiteish color for correct */
+}
+
+.char.incorrect {
+  color: #ca4754; /* Red for error */
+  background-color: rgba(202, 71, 84, 0.2); /* Slight red background highlight */
+}
+
+/* The Blinking Cursor */
+.char.current {
+  border-left: 2px solid #e2b714;
+}
+
+.restart-btn {
+  margin-top: 30px;
+  padding: 15px 30px;
+  background-color: #e2b714;
+  color: #2c2e31;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 5px;
+  font-weight: bold;
+}
+.restart-btn:hover {
+  background-color: #d1a812;
+}

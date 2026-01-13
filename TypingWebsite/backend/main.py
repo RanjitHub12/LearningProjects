@@ -93,6 +93,25 @@ def get_leaderboard(db: Session = Depends(database.get_db)):
         })
     return clean_data
 
+# --- NEW ENDPOINT FOR GRAPH DATA ---
+@app.get("/api/user-history/{user_id}")
+def get_user_history(user_id: int, db: Session = Depends(database.get_db)):
+    # Get the last 10 games for this user, ordered by time
+    history = db.query(models.Result)\
+        .filter(models.Result.user_id == user_id)\
+        .order_by(models.Result.created_at.asc())\
+        .limit(20)\
+        .all()
+
+    return [
+        {
+            "wpm": r.wpm,
+            "accuracy": r.accuracy,
+            "date": r.created_at.strftime("%H:%M") # Simple time format
+        } 
+        for r in history
+    ]
+
 @app.get("/api/get-text")
 def get_random_text(db: Session = Depends(database.get_db)):
     random_words = db.query(models.Word).order_by(sql_func.random()).limit(50).all()

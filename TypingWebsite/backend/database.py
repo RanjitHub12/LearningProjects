@@ -9,7 +9,7 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL")
 # 2. If no cloud URL (we are on localhost), use your local password
 if not SQLALCHEMY_DATABASE_URL:
     # REPLACE 'password' BELOW WITH YOUR ACTUAL LOCAL PASSWORD
-    SQLALCHEMY_DATABASE_URL = "postgresql://postgres:password@localhost/typing_db"
+    SQLALCHEMY_DATABASE_URL = "postgresql://postgres:hades12@localhost/typing_db"
 
 # Fix for some cloud providers that use "postgres://" instead of "postgresql://"
 if SQLALCHEMY_DATABASE_URL and SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
