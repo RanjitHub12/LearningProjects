@@ -182,3 +182,5 @@ async def upload_file(file: UploadFile = File(...), db: Session = Depends(databa
         "total_words_in_db": db.query(models.Word).count()
     }
 
+# Export app for Vercel
+__all__ = ["app"]
