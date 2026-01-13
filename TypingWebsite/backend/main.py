@@ -16,7 +16,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 profanity.load_censor_words() # Load the default list of bad words
 
 # Create tables
-models.Base.metadata.create_all(bind=database.engine)
+# models.Base.metadata.create_all(bind=database.engine)
 # --- LIFESPAN MANAGER (Auto-creates tables on startup) ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
