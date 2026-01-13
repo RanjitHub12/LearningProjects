@@ -39,7 +39,10 @@ function App() {
     e.preventDefault();
     try {
       let userData;
-      const baseURL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+      // NOTE: Change URL to https://ranjitsingh12.pythonanywhere.com if using cloud
+      // const baseURL = 'http://127.0.0.1:8000';
+      const baseURL = 'https://typing-backend-beta.vercel.app';
+
        
       
       if (authMode === "login") {
@@ -70,7 +73,7 @@ function App() {
   // --- GAME FUNCTIONS ---
   const fetchLeaderboard = async () => {
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/leaderboard`);
+      const res = await axios.get('http://127.0.0.1:8000/api/leaderboard');
       setLeaderboard(res.data);
     } catch (error) { console.error(error); }
   };
@@ -79,7 +82,7 @@ function App() {
   const fetchGraphData = async () => {
     if (!user) return;
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/user-history/${user.id}`);
+      const res = await axios.get(`http://127.0.0.1:8000/api/user-history/${user.id}`);
       setGraphData(res.data);
     } catch (error) {
       console.error("Error fetching graph data:", error);
@@ -93,7 +96,7 @@ function App() {
     setStatusMsg(""); 
     setText("Loading...".split(""));
     try {
-      const res = await axios.get(`${import.meta.env.VITE_API_URL}/api/get-text`);
+      const res = await axios.get('http://127.0.0.1:8000/api/get-text');
       setText(res.data.content.split(""));
     } catch (error) {
       setText("fallback text example".split(""));
@@ -141,7 +144,7 @@ function App() {
 
     try {
       setStatusMsg("Saving...");
-      await axios.post(`${import.meta.env.VITE_API_URL}/api/save-score`, {
+      await axios.post('http://127.0.0.1:8000/api/save-score', {
         user_id: user.id, 
         wpm: finalWpm,
         accuracy: finalAcc
@@ -160,7 +163,7 @@ function App() {
     if (!file) return;
     const formData = new FormData();
     formData.append("file", file);
-    await axios.post(`${import.meta.env.VITE_API_URL}/api/upload`, formData);
+    await axios.post('http://127.0.0.1:8000/api/upload', formData);
     alert("Vocabulary Updated!");
     resetGame();
   };
