@@ -33,7 +33,7 @@ from sqlalchemy.orm import sessionmaker
 # FIXED CONNECTION STRING:
 # 1. Added '+psycopg2' to ensure Vercel finds the driver.
 # 2. Changed '@' in password to '%40' so it doesn't break the URL.
-SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:TypingTest%4012@db.tdlyfcxgwhcmzdeczuxg.supabase.co:5432/postgres"
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:TypingTest1213@db.tdlyfcxgwhcmzdeczuxg.supabase.co:5432/postgres"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
