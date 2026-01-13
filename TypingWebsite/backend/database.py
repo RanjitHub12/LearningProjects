@@ -21,14 +21,30 @@ for _name in _env_candidates:
         SQLALCHEMY_DATABASE_URL = _val
         break
 
-# If no remote DB provided, fall back to a local sqlite file so the app can start.
+# If no remote DB provided, use an explicit remote Postgres URI fallback.
+# Replace [YOUR-PASSWORD] with your actual DB password, or set a DATABASE_URL env var instead.
 if not SQLALCHEMY_DATABASE_URL:
-    logging.warning("No DATABASE_URL found in environment; falling back to local sqlite.")
-    SQLALCHEMY_DATABASE_URL = "sqlite:///./typing_db.sqlite"
+    logging.warning(
+        "No DATABASE_URL found in environment; using explicit Postgres URI fallback. "
+        "Set DATABASE_URL to override or replace [YOUR-PASSWORD] in the fallback string."
+    )
+    SQLALCHEMY_DATABASE_URL = (
+        "postgresql://postgres.tdlyfcxgwhcmzdeczuxg:TypingTest1213@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
+    )
 
 # Normalize older 'postgres://' scheme to 'postgresql://' required by SQLAlchemy
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# If the fallback value still contains an obvious placeholder, treat it as unset
+# and fall back to a local sqlite file so the app can start locally and not
+# attempt a failing network connection during startup.
+if SQLALCHEMY_DATABASE_URL and "[YOUR-PASSWORD]" in SQLALCHEMY_DATABASE_URL:
+    logging.warning(
+        "Detected placeholder password in DATABASE URL; falling back to local sqlite. "
+        "Set a real DATABASE_URL environment variable to use Postgres."
+    )
+    SQLALCHEMY_DATABASE_URL = "sqlite:///./typing_db.sqlite"
 
 # Use `pool_pre_ping` for more robust connections to cloud DBs
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
