@@ -40,7 +40,10 @@ function App() {
     try {
       let userData;
       // NOTE: Change URL to https://ranjitsingh12.pythonanywhere.com if using cloud
-      const baseURL = 'http://127.0.0.1:8000'; 
+      // const baseURL = 'http://127.0.0.1:8000';
+      const baseURL = 'https://typing-backend-beta.vercel.app';
+
+       
       
       if (authMode === "login") {
         const res = await axios.post(`${baseURL}/api/login`, { email, password });
