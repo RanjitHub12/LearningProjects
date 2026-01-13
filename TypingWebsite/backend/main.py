@@ -7,6 +7,7 @@ from passlib.context import CryptContext
 from spellchecker import SpellChecker 
 from better_profanity import profanity # NEW IMPORT
 import models, database, re
+from contextlib import asynccontextmanager
 
 # --- SECURITY SETUP ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -16,8 +17,15 @@ profanity.load_censor_words() # Load the default list of bad words
 
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
+# --- LIFESPAN MANAGER (Auto-creates tables on startup) ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # This runs when the server starts
+    models.Base.metadata.create_all(bind=database.engine)
+    yield
+    # This runs when the server stops (optional cleanup)
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
