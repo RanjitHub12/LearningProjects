@@ -25,15 +25,16 @@
 #         yield db
 #     finally:
 #         db.close()
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# 1. PASTE YOUR SUPABASE URI HERE
-# (Don't forget to put your real password inside the string!)
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:TypingTest@12@db.tdlyfcxgwhcmzdeczuxg.supabase.co:5432/postgres"
+# FIXED CONNECTION STRING:
+# 1. Added '+psycopg2' to ensure Vercel finds the driver.
+# 2. Changed '@' in password to '%40' so it doesn't break the URL.
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:TypingTest%4012@db.tdlyfcxgwhcmzdeczuxg.supabase.co:5432/postgres"
 
-# 2. Create Engine (Standard Postgres setup)
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
