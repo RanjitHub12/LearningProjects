@@ -25,15 +25,17 @@
 #         yield db
 #     finally:
 #         db.close()
+
+
+
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# --- CORRECTED DATABASE URL ---
-# Based on your screenshot: aws-1-ap-southeast-1.pooler.supabase.com
-# Port: 6543
-# Database: postgres
-# SSL Mode: require (Essential for Vercel)
+# --- CORRECTED DATABASE CONFIG ---
+# HOST: aws-1-ap-southeast-1.pooler.supabase.com (From your screenshot)
+# PORT: 6543 (Transaction Pooler)
+# PASSWORD: TypingTest1213 (Your new password without '@')
 
 SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres.tdlyfcxgwhcmzdeczuxg:TypingTest1213@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
