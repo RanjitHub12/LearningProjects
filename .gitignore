@@ -1,41 +1,76 @@
-# Ignore Visual Studio Code configuration files
-.vscode/
+# --- Python Core ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
 
-# Ignore compiled Java class files and archives
+# --- Virtual Environments ---
+env/
+venv/
+.env/
+.venv/
+pip-wheel-metadata/
+
+# --- Environment Variables & Secrets ---
+.env
+
+# --- Jupyter Notebooks & IPython ---
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+profile_default/
+ipython_config.py
+
+# --- IDEs & Editors ---
+.vscode/
+*.code-workspace
+.idea/
+*.iml
+
+# --- Java (Compiled & Archives) ---
 *.class
 *.jar
 *.war
 *.ear
 
-# Ignore Java log files
+# --- OS Generated Files ---
+.DS_Store
+Thumbs.db
+
+# --- Logs & Debugging ---
 *.log
 
-# Ignore Python virtual environments
-venv/
-env/
-.venv/
-.env/
+# --- Matplotlib & Visualization ---
+# Ignore generated plots (general)
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+~/.matplotlib
 
-# Ignore Python cache files
-__pycache__/
-*.pyc
+# ======================================
+# PROJECT SPECIFIC IGNORES
+# ======================================
 
-# Ignore files containing sensitive environment variables
-.env
-
-# Ignore OS-specific files
-Thumbs.db
-.DS_Store
-
-# --- Project Specific Ignores ---
-
-# Jupyter Notebook junk
-.ipynb_checkpoints/
-
-# Heavy Datasets (Do not push these)
+# --- Agriculture Project ---
 Agriculture Project/DataSet/
-
-# Large Model weights (Optional: Comment out if files are small)
 Agriculture Project/models/*.pth
 Agriculture Project/models/*.pkl
 Agriculture Project/models/*.joblib
+
+# --- QRPhishing Project ---
+# Ignore the main dataset folder
+QRPhishing/DataSet/
+
+# Ignore external test datasets
+QRPhishing/External_Dataset_Test/
+QRPhishing/External_Dataset_Test_Quick/
+
+# Ignore large model weights (PyTorch files)
+QRPhishing/*.pth
+
+# Optional: Ignore generated result images in this folder
+# (Comment this out if you WANT to version control your result graphs)
+QRPhishing/*.png
