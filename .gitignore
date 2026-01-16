@@ -74,3 +74,39 @@ QRPhishing/*.pth
 # Optional: Ignore generated result images in this folder
 # (Comment this out if you WANT to version control your result graphs)
 QRPhishing/*.png
+
+
+# ======================================
+# DEEPFAKE / DETECTION PROJECT
+# ======================================
+
+# Datasets (usually large / external)
+DeepfakeDetection/DataSet/
+DeepfakeDetection/Dataset/
+DeepfakeDetection/data/
+DeepfakeDetection/datasets/
+
+# Model weights & checkpoints
+DeepfakeDetection/models/*.pth
+DeepfakeDetection/models/*.pt
+DeepfakeDetection/models/*.h5
+DeepfakeDetection/models/*.ckpt
+DeepfakeDetection/models/*.joblib
+DeepfakeDetection/models/*.pkl
+
+# Training artifacts
+DeepfakeDetection/runs/
+DeepfakeDetection/logs/
+DeepfakeDetection/output/
+DeepfakeDetection/results/
+
+# Generated media / predictions
+DeepfakeDetection/*.png
+DeepfakeDetection/*.jpg
+DeepfakeDetection/*.jpeg
+DeepfakeDetection/*.mp4
+DeepfakeDetection/*.avi
+
+# Temporary / cache
+DeepfakeDetection/__pycache__/
+DeepfakeDetection/.cache/
