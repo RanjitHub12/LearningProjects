@@ -1,0 +1,32 @@
+# --- Project Specific (From your screenshot) ---
+# Ignore large model weights and checkpoints
+checkpoints/
+*.pth
+*.pt
+*.h5
+
+# Ignore large datasets
+dataset/
+data/
+
+# --- Python & Jupyter Standard ---
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual Environments (Common if you use venv or env)
+venv/
+env/
+.venv/
+
+# --- Editor / OS ---
+# VS Code settings (optional, but often good to ignore local settings)
+.vscode/
+
+# OS generated files
+.DS_Store
+Thumbs.db

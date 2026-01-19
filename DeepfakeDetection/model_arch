@@ -1,0 +1,28 @@
+// ResNet-Mamba Detector
+digraph {
+	fontsize=20 label="ResNet-Mamba Architecture" rankdir=LR
+	In [label="Input
+(B, 3, 224, 224)" fillcolor="#a9def9" shape=box style=filled]
+	RN [label="ResNet-18
+Backbone" fillcolor="#e4c1f9" shape=box style=filled]
+	Pr [label="Linear Proj
+(512->128)" fillcolor="#e4c1f9" shape=box style=filled]
+	subgraph cluster_mamba {
+		label="Mamba Block" style=dashed
+		Unsq [label=Unsqueeze fillcolor=lightgrey shape=oval style=filled]
+		Mamba [label="Mamba Layer" fillcolor="#f694c1" shape=box style=filled]
+		Sq [label=Squeeze fillcolor=lightgrey shape=oval style=filled]
+		Unsq -> Mamba
+		Mamba -> Sq
+	}
+	subgraph cluster_head {
+		label=Classifier style=dashed
+		FC [label="Linear+ReLU" fillcolor="#c3f73a" shape=box style=filled]
+		Out [label=Logit fillcolor="#c3f73a" shape=box style=filled]
+		FC -> Out
+	}
+	In -> RN
+	RN -> Pr
+	Pr -> Unsq
+	Sq -> FC
+}
