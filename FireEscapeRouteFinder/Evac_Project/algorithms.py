@@ -1,6 +1,7 @@
 import heapq
 import math
 
+# --- HELPER FUNCTIONS ---
 def approx(a, b, tol=1e-5):
     if a == float('inf') and b == float('inf'): return True
     if a == float('inf') or b == float('inf'): return False
@@ -12,6 +13,7 @@ class Key:
         if approx(self.k1, other.k1): return self.k2 < other.k2
         return self.k1 < other.k1
 
+# --- NODE CLASS (DEFINED HERE) ---
 class Node:
     def __init__(self, x, y):
         self.x, self.y = x, y
@@ -24,6 +26,7 @@ class Node:
     def __lt__(self, other): return self.pos < other.pos
     def __repr__(self): return f"N{self.pos}"
 
+# --- PATHFINDING CLASS (DEFINED HERE) ---
 class DStarLite:
     def __init__(self, start, goals, windows, nodes_dict):
         self.start = start; self.goals = goals; self.windows = windows; self.nodes = nodes_dict

@@ -1,7 +1,7 @@
 import random
 import math
 from collections import deque
-from algorithms import Node, DStarLite
+from algorithms import Node, DStarLite 
 from sensors import PDRSystem
 from layout import LayoutManager
 
@@ -88,8 +88,20 @@ class Simulation:
         self.next_dist = 0
         self.feedback_log = "System Standard"
 
+        # --- GHOST PATHS STORAGE ---
+        self.ghost_paths = [] 
+
+    def snapshot_path(self):
+        """Saves the current optimal path before it gets recalculated/invalidated."""
+        if hasattr(self.solver, 'get_whole_path'):
+            path_nodes = self.solver.get_whole_path()
+            if path_nodes and len(path_nodes) > 1:
+                coords = [(n.x, n.y) for n in path_nodes]
+                self.ghost_paths.append(coords)
+                if len(self.ghost_paths) > 8:
+                    self.ghost_paths.pop(0)
+
     def generate_building_plan(self):
-        # RESTORED ORIGINAL LAYOUT LOGIC
         def draw_wall(x1, x2, y1, y2):
             for x in range(min(x1, x2), max(x1, x2) + 1):
                 for y in range(min(y1, y2), max(y1, y2) + 1):
@@ -146,7 +158,10 @@ class Simulation:
                         if risk_penalty > neighbor.fire_risk:
                             neighbor.fire_risk = risk_penalty; updates.add(neighbor) 
                         queue.append((neighbor, depth + 1))
-        if updates: self.solver.update_map(list(updates))
+        
+        if updates: 
+            self.snapshot_path() # Save old path before update
+            self.solver.update_map(list(updates))
 
     def check_line_of_sight(self, target):
         x0, y0 = self.start_node.x, self.start_node.y
@@ -161,17 +176,24 @@ class Simulation:
             if self.grid[(cx, cy)].type == 'WALL': return False 
         return True
 
-    def ignite_and_spread(self):
+    # --- UPDATED IGNITE FUNCTION ---
+    def ignite_and_spread(self, allow_random_ignition=True):
         updates = []; should_ignite = False
-        if not self.has_ignited:
-            if random.random() < 0.15: should_ignite = True
-        else:
-            if random.random() < 0.05: should_ignite = True
+        
+        # Only start NEW fires if allowed
+        if allow_random_ignition:
+            if not self.has_ignited:
+                if random.random() < 0.15: should_ignite = True
+            else:
+                if random.random() < 0.05: should_ignite = True
+                
         if should_ignite: 
             rx, ry = random.randint(1, self.size-2), random.randint(1, self.size-2)
             s = self.grid[(rx, ry)]
             if s.type == 'EMPTY' and s != self.start_node:
                 s.type = 'FIRE'; self.fire_front.append(s); updates.append(s); self.has_ignited = True
+        
+        # Existing fire always spreads (Physics don't stop)
         new_fire = []
         for f in self.fire_front:
             for n in f.neighbors:
@@ -235,7 +257,6 @@ class Simulation:
         self.crowd_agents = [a for a in self.crowd_agents if a['node'] is not None]
         return updates
 
-    # --- UPDATED FIRE TOGGLE WITH TARGETING ---
     def toggle_fire(self, target_pos=None):
         f = None
         if target_pos:
@@ -243,12 +264,12 @@ class Simulation:
             if (tx, ty) in self.grid and self.grid[(tx, ty)].type != 'WALL':
                 f = self.grid[(tx, ty)]
         else:
-            # Random default behavior
             valid = [n for n in self.nodes_list if n.type == 'EMPTY' and n != self.start_node]
             if valid:
                 f = random.choice(valid)
         
         if f:
+            self.snapshot_path()
             f.type = 'FIRE'; f.perceived_type = 'FIRE'
             self.fire_front.append(f)
             self.panic_mode = True
@@ -256,14 +277,21 @@ class Simulation:
             return True
         return False
 
-    def step(self, manual_move=None):
+    # --- UPDATED STEP FUNCTION ---
+    def step(self, manual_move=None, allow_fire=True):
         prev_node = self.start_node 
         
         if len(self.fire_front) > 0: self.panic_mode = True
         if (self.start_node in self.goals or self.start_node in self.windows) and self.start_node.type != 'RUBBLE':
             self.escaped = True; self.instruction = "ESCAPED"; self.dist_to_exit = 0.0; return
 
-        self.ignite_and_spread(); self.move_crowds()
+        if self.steps % 5 == 0: 
+             self.snapshot_path()
+             
+        # PASS FLAG TO IGNITE FUNCTION
+        self.ignite_and_spread(allow_random_ignition=allow_fire)
+        
+        self.move_crowds()
         self.process_sensor_data()
         
         for n in self.nodes_list: n.crowd_density = 0

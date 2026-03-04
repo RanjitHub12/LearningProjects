@@ -55,6 +55,10 @@ with st.sidebar:
     
     view_mode = st.radio("👁️ View Mode", ["Architect View (Simulation)", "User View (App)"])
 
+    st.subheader("Timing")
+    sim_speed = st.slider("Step Delay (sec)", min_value=0.01, max_value=1.0, value=0.1, step=0.05, 
+                          help="Lower is faster. Controls 'Auto-Pilot' speed.")
+
     st.subheader("Manual Override")
     c1, c2, c3 = st.columns([1,1,1])
     with c2: 
@@ -69,6 +73,10 @@ with st.sidebar:
 
     st.subheader("Simulation Control")
     run_auto = st.checkbox("Engage Auto-Pilot", value=False)
+    
+    # --- UPGRADE: FIRE TOGGLE ---
+    enable_fire_gen = st.checkbox("Enable Random Fire Events", value=False, 
+                                  help="If unchecked, fire only starts if you manually ignite it.")
     
     st.error("HAZARD CONTROL")
     with st.expander("🔥 Arsonist Mode (Manual Fire)", expanded=True):
@@ -110,7 +118,6 @@ with col_info:
         "WAIT": "🛑", "SAFE": "✅", "STOP!": "⚠️", "ESCAPED": "🏃"
     }.get(instruction, "❓")
     
-    # 2-STEP INSTRUCTION DISPLAY
     next_step_html = ""
     if hasattr(sim, 'next_action') and sim.next_action != "Arrive" and instruction not in ["SAFE", "ESCAPED", "WAIT"]:
         next_step_html = f"<div class='secondary-action'>Then {sim.next_action} for {sim.next_dist}m</div>"
@@ -123,7 +130,6 @@ with col_info:
     </div>
     """, unsafe_allow_html=True)
     
-    # Generate Haptic Text
     haptic_msg = feedback.trigger(instruction)
     st.markdown("### 📳 Device Output")
     st.text_area("Haptic Log", value=haptic_msg if haptic_msg else "Standby...", height=80, disabled=True)
@@ -169,7 +175,16 @@ with col_map:
 
     ax.imshow(grid_colors, origin='lower')
     
-    # --- UPGRADE: DYNAMIC PATH VISUALIZATION (CYAN LINE) ---
+    # Ghost Paths (Magenta Dotted Lines)
+    if hasattr(sim, 'ghost_paths'):
+        for i, g_path in enumerate(sim.ghost_paths):
+            if g_path:
+                gpx = [p[0] for p in g_path]
+                gpy = [p[1] for p in g_path]
+                alpha = 0.2 + (i * 0.1) 
+                ax.plot(gpx, gpy, color='magenta', linewidth=1.5, linestyle=':', alpha=alpha)
+
+    # Dynamic Path Visualization (Cyan Line)
     if hasattr(sim.solver, 'get_whole_path'):
         full_path = sim.solver.get_whole_path()
         if full_path:
@@ -177,28 +192,23 @@ with col_map:
             py = [n.y for n in full_path]
             ax.plot(px, py, color='cyan', linewidth=2.5, linestyle='--', label="Optimal Path")
 
-    # --- UPGRADE: AXIS SCALES ---
     ax.set_xticks(np.arange(0, sim.size, 5))
     ax.set_yticks(np.arange(0, sim.size, 5))
     ax.tick_params(axis='both', colors='white', labelsize=8)
-    ax.grid(color='white', linestyle=':', linewidth=0.3, alpha=0.3) # Subtle grid to help aiming
+    ax.grid(color='white', linestyle=':', linewidth=0.3, alpha=0.3) 
 
-    # 1. DRAW SENSORS
     if view_mode == "Architect View (Simulation)" and hasattr(sim, 'sensors'):
         sensor_x = [s.x for s in sim.sensors]
         sensor_y = [s.y for s in sim.sensors]
         ax.scatter(sensor_x, sensor_y, c='gold', s=10, marker='.', alpha=0.5, label="IoT Sensors")
 
-    # 2. Real Position
     ax.scatter(sim.start_node.x, sim.start_node.y, c='blue', s=150, edgecolors='white', zorder=10, label="Real Pos")
     
-    # 3. PDR Estimated Position
     if sim.pdr_trace:
         px, py = sim.pdr_trace[-1]
         ax.scatter(px, py, c='red', marker='x', s=120, linewidth=3, zorder=11, label="PDR Est.")
     
-    # Dynamic Title
-    title_mode = "ARCHITECT VIEW - GLOBAL MONITORING" if view_mode == "Architect View (Simulation)" else "USER APP - LOCAL VISIBILITY"
+    title_mode = "ARCHITECT VIEW" if view_mode == "Architect View (Simulation)" else "USER APP MODE"
     ax.set_title(f"{title_mode} | Step: {st.session_state.step_count}", color='white', fontsize=10)
     
     if view_mode == "Architect View (Simulation)":
@@ -206,9 +216,10 @@ with col_map:
         
     st.pyplot(fig)
 
-# Auto-Run Logic
+# Auto-Run Logic (Updated)
 if run_auto and not sim.escaped:
-    sim.step()
+    # PASS THE CHECKBOX VALUE HERE
+    sim.step(allow_fire=enable_fire_gen) 
     st.session_state.step_count += 1
-    time.sleep(0.1)
+    time.sleep(sim_speed)
     st.rerun()
