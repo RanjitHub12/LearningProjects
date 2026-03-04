@@ -52,7 +52,20 @@ feedback = st.session_state.feedback
 # ==========================================
 with st.sidebar:
     st.header("🎛️ Control Panel")
+    # Add this in app.py, right under "st.header("🎛️ Control Panel")"
+
+    st.subheader("Upload Custom Layout")
+    uploaded_plan = st.file_uploader("Upload SmartDraw PNG", type=["png", "jpg"])
     
+    if uploaded_plan is not None:
+        if st.button("Generate Map from Image"):
+            # Create a fresh simulation and feed it the image
+            st.session_state.sim = Simulation(size=60, layout_mgr=None)
+            st.session_state.sim.generate_from_image(uploaded_plan)
+            # Re-initialize the D* Lite solver with the new targets
+            st.session_state.sim.solver.initialize()
+            st.rerun()
+            
     view_mode = st.radio("👁️ View Mode", ["Architect View (Simulation)", "User View (App)"])
 
     st.subheader("Timing")

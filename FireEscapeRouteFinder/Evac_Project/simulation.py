@@ -4,8 +4,51 @@ from collections import deque
 from algorithms import Node, DStarLite 
 from sensors import PDRSystem
 from layout import LayoutManager
+from PIL import Image
+import numpy as np
+
 
 class Simulation:
+
+    def generate_from_image(self, image_file):
+        """Converts an uploaded SmartDraw/CAD PNG into the simulation grid."""
+        
+        # 1. Open the image and resize it to match the grid (60x60)
+        img = Image.open(image_file).convert('RGB')
+        img = img.resize((self.size, self.size))
+        img_array = np.array(img)
+
+        # 2. Clear current goals and windows
+        self.goals = []
+        self.windows = []
+
+        # 3. Scan every pixel
+        for y in range(self.size):
+            for x in range(self.size):
+                # In images, Y=0 is the top. In our grid, Y=0 is the bottom. 
+                # We flip the Y axis so the map isn't upside down.
+                r, g, b = img_array[self.size - 1 - y, x]
+                
+                node = self.grid[(x, y)]
+                
+                # Detect Black (Walls)
+                if r < 50 and g < 50 and b < 50:
+                    node.type = 'WALL'
+                
+                # Detect Green (Exits)
+                elif g > 150 and r < 100 and b < 100:
+                    node.type = 'EMPTY'
+                    self.goals.append(node)
+                
+                # Detect Blue (Windows)
+                elif b > 150 and r < 100 and g < 150:
+                    node.type = 'WINDOW'
+                    self.windows.append(node)
+                
+                # Detect White/Everything else (Empty Floor)
+                else:
+                    node.type = 'EMPTY'
+
     def __init__(self, size=60, layout_mgr=None):
         self.solver = None
         self.size = size
