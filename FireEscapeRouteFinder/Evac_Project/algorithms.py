@@ -116,6 +116,41 @@ class DStarLite:
         if best and min_c != float('inf'): self.km += self.h(best); self.start = best; return best
         return None
 
+    # --- VISUALIZATION: GET FULL PATH ---
+    def get_whole_path(self):
+        """Reconstructs the full optimal path from start to goal for visualization."""
+        if self.start.g == float('inf'): return []
+        
+        path = [self.start]
+        curr = self.start
+        visited = {curr}
+        
+        # Limit path length to prevent infinite loops in weird edge cases
+        for _ in range(200):
+            if curr in self.goals or curr in self.windows: break
+            
+            best = None
+            min_val = float('inf')
+            
+            for n in curr.neighbors:
+                edge_cost = self.c(curr, n)
+                if edge_cost == float('inf'): continue
+                
+                # Gradient Descent: Cost to neighbor + neighbor's cost to goal
+                val = edge_cost + n.g
+                if val < min_val:
+                    min_val = val
+                    best = n
+            
+            if best and best not in visited:
+                path.append(best)
+                visited.add(best)
+                curr = best
+            else:
+                break
+        
+        return path
+
     # --- ADVANCED NAVIGATION (2-STEP LOOKAHEAD) ---
     def get_navigation_data(self):
         if self.start.rhs == float('inf'): return "WAIT", 0, "No Path", 0

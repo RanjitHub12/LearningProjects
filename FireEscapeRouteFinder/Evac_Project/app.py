@@ -53,7 +53,6 @@ feedback = st.session_state.feedback
 with st.sidebar:
     st.header("🎛️ Control Panel")
     
-    # --- UPGRADE 1: PITCH MODE SELECTOR ---
     view_mode = st.radio("👁️ View Mode", ["Architect View (Simulation)", "User View (App)"])
 
     st.subheader("Manual Override")
@@ -71,7 +70,6 @@ with st.sidebar:
     st.subheader("Simulation Control")
     run_auto = st.checkbox("Engage Auto-Pilot", value=False)
     
-    # --- UPGRADE 2: TACTICAL FIRE CONTROL (CLICK SIMULATION) ---
     st.error("HAZARD CONTROL")
     with st.expander("🔥 Arsonist Mode (Manual Fire)", expanded=True):
         st.write("Target Coordinates:")
@@ -161,28 +159,40 @@ with col_map:
             elif node in sim.goals: grid_colors[y, x] = C_EXIT
             else: grid_colors[y, x] = C_FLOOR
             
-            # --- UPGRADE 3: FOG OF WAR LOGIC ---
+            # Fog of War
             if view_mode == "User View (App)":
-                # Hard Fog: If not visited, show PITCH BLACK
                 if not node.visited:
                      grid_colors[y, x] = [0.0, 0.0, 0.0]
             else:
-                # Architect View: Soft Fog (Dimmed)
                 if not node.visited:
                     grid_colors[y, x] = [c * 0.4 for c in grid_colors[y, x]]
 
     ax.imshow(grid_colors, origin='lower')
     
-    # 1. DRAW SENSORS (Gold Dots) - Only visible in Architect Mode
+    # --- UPGRADE: DYNAMIC PATH VISUALIZATION (CYAN LINE) ---
+    if hasattr(sim.solver, 'get_whole_path'):
+        full_path = sim.solver.get_whole_path()
+        if full_path:
+            px = [n.x for n in full_path]
+            py = [n.y for n in full_path]
+            ax.plot(px, py, color='cyan', linewidth=2.5, linestyle='--', label="Optimal Path")
+
+    # --- UPGRADE: AXIS SCALES ---
+    ax.set_xticks(np.arange(0, sim.size, 5))
+    ax.set_yticks(np.arange(0, sim.size, 5))
+    ax.tick_params(axis='both', colors='white', labelsize=8)
+    ax.grid(color='white', linestyle=':', linewidth=0.3, alpha=0.3) # Subtle grid to help aiming
+
+    # 1. DRAW SENSORS
     if view_mode == "Architect View (Simulation)" and hasattr(sim, 'sensors'):
         sensor_x = [s.x for s in sim.sensors]
         sensor_y = [s.y for s in sim.sensors]
         ax.scatter(sensor_x, sensor_y, c='gold', s=10, marker='.', alpha=0.5, label="IoT Sensors")
 
-    # 2. Real Position (GPS) - Always visible (Ground Truth)
+    # 2. Real Position
     ax.scatter(sim.start_node.x, sim.start_node.y, c='blue', s=150, edgecolors='white', zorder=10, label="Real Pos")
     
-    # 3. PDR Estimated Position (Red X)
+    # 3. PDR Estimated Position
     if sim.pdr_trace:
         px, py = sim.pdr_trace[-1]
         ax.scatter(px, py, c='red', marker='x', s=120, linewidth=3, zorder=11, label="PDR Est.")
@@ -194,8 +204,6 @@ with col_map:
     if view_mode == "Architect View (Simulation)":
         ax.legend(loc='upper right', fontsize='small', framealpha=0.9)
         
-    ax.set_xticks([]); ax.set_yticks([])
-    
     st.pyplot(fig)
 
 # Auto-Run Logic
