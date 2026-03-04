@@ -142,10 +142,13 @@ class Simulation:
         updates = set(); detected_fires = set(); sensor_range = 5.0
         for s in self.sensors:
             for fire_node in self.fire_front:
+                # SENSOR DETECTION LOGIC
                 if math.hypot(s.x - fire_node.x, s.y - fire_node.y) <= sensor_range:
                     if fire_node.perceived_type != 'FIRE':
                         fire_node.perceived_type = 'FIRE'; updates.add(fire_node)
                     detected_fires.add(fire_node)
+        
+        # SPREAD RISK (HEAT) AROUND DETECTED FIRE
         for fire in detected_fires:
             queue = deque([(fire, 0)]); visited = {fire}
             while queue:
@@ -159,8 +162,9 @@ class Simulation:
                             neighbor.fire_risk = risk_penalty; updates.add(neighbor) 
                         queue.append((neighbor, depth + 1))
         
+        # Only update the map if SENSORS found something
         if updates: 
-            self.snapshot_path() # Save old path before update
+            self.snapshot_path()
             self.solver.update_map(list(updates))
 
     def check_line_of_sight(self, target):
@@ -176,11 +180,10 @@ class Simulation:
             if self.grid[(cx, cy)].type == 'WALL': return False 
         return True
 
-    # --- UPDATED IGNITE FUNCTION ---
     def ignite_and_spread(self, allow_random_ignition=True):
         updates = []; should_ignite = False
         
-        # Only start NEW fires if allowed
+        # Random Ignition Logic
         if allow_random_ignition:
             if not self.has_ignited:
                 if random.random() < 0.15: should_ignite = True
@@ -191,9 +194,10 @@ class Simulation:
             rx, ry = random.randint(1, self.size-2), random.randint(1, self.size-2)
             s = self.grid[(rx, ry)]
             if s.type == 'EMPTY' and s != self.start_node:
+                # NOTE: We set PHYSICAL type, NOT perceived type
                 s.type = 'FIRE'; self.fire_front.append(s); updates.append(s); self.has_ignited = True
         
-        # Existing fire always spreads (Physics don't stop)
+        # Fire Spreading Logic
         new_fire = []
         for f in self.fire_front:
             for n in f.neighbors:
@@ -206,10 +210,11 @@ class Simulation:
                     elif random.random() < 0.80 and n.type == 'EMPTY':
                         n.type = 'SMOKE'; updates.append(n)
         self.fire_front.extend(new_fire)
+        # Note: We return updates, but we do NOT call solver.update_map here.
+        # The algorithm remains ignorant until sensors/eyes catch it.
         return updates
 
     def compute_flow_field(self):
-        # Crowd Flow (Panic)
         self.flow_field_crowd = {n: float('inf') for n in self.nodes_list}
         q = deque([e for e in (self.goals + self.windows) if e.type != 'RUBBLE'])
         for e in q: self.flow_field_crowd[e] = 0
@@ -219,7 +224,6 @@ class Simulation:
                 if n.type not in ['WALL', 'RUBBLE', 'FIRE'] and self.flow_field_crowd[n] == float('inf'):
                     self.flow_field_crowd[n] = self.flow_field_crowd[curr] + 1; q.append(n)
 
-        # App Flow (Exit Selection Logic)
         self.flow_field_app = {n: float('inf') for n in self.nodes_list}
         fire_near = self.solver.fire_near_main_exits if self.solver else False
         targets = [g for g in self.goals if g.type != 'RUBBLE']
@@ -269,15 +273,16 @@ class Simulation:
                 f = random.choice(valid)
         
         if f:
-            self.snapshot_path()
-            f.type = 'FIRE'; f.perceived_type = 'FIRE'
+            # We set PHYSICAL state only. 
+            # D* Lite (Omni-sense) is NOT updated here anymore.
+            f.type = 'FIRE' 
+            # f.perceived_type = 'FIRE' <--- REMOVED THIS
             self.fire_front.append(f)
             self.panic_mode = True
-            self.solver.update_map([f])
+            # self.solver.update_map([f]) <--- REMOVED THIS
             return True
         return False
 
-    # --- UPDATED STEP FUNCTION ---
     def step(self, manual_move=None, allow_fire=True):
         prev_node = self.start_node 
         
@@ -288,11 +293,9 @@ class Simulation:
         if self.steps % 5 == 0: 
              self.snapshot_path()
              
-        # PASS FLAG TO IGNITE FUNCTION
         self.ignite_and_spread(allow_random_ignition=allow_fire)
-        
         self.move_crowds()
-        self.process_sensor_data()
+        self.process_sensor_data() # <--- SENSORS UPDATE MAP HERE
         
         for n in self.nodes_list: n.crowd_density = 0
         for agent in self.crowd_agents:
@@ -302,10 +305,27 @@ class Simulation:
         for n in self.nodes_list:
             if self.check_line_of_sight(n):
                 n.visited = True; n.perceived_crowd = n.crowd_density
-                actual = 'EMPTY' if n.type == 'CROWD' else n.type
-                if n.perceived_type != actual and actual != 'FIRE': 
-                      n.perceived_type = actual; perception_updates.append(n)
-        if perception_updates: self.solver.update_map(perception_updates)
+                
+                # --- VISUAL CONFIRMATION LOGIC ---
+                # The agent sees the "Actual" state
+                actual = n.type 
+                if n.type == 'CROWD': actual = 'EMPTY' # Simplified crowd handling
+                
+                # If what we see (actual) is different from what we thought (perceived)
+                # AND it involves FIRE or obstacle changes...
+                if n.perceived_type != actual:
+                    # If we see FIRE, we MUST update perception immediately
+                    if n.type == 'FIRE': 
+                        n.perceived_type = 'FIRE'
+                        perception_updates.append(n)
+                    # If we see walls/obstacles
+                    elif n.perceived_type != actual:
+                        n.perceived_type = actual
+                        perception_updates.append(n)
+
+        if perception_updates: 
+            self.snapshot_path()
+            self.solver.update_map(perception_updates)
         
         # MOVEMENT LOGIC
         if manual_move:
@@ -321,14 +341,12 @@ class Simulation:
             
             if next_n: 
                 self.start_node = next_n
-                # --- TURN-BY-TURN DATA RETRIEVAL ---
                 heading, dist, action, next_d = self.solver.get_navigation_data()
                 self.instruction = heading
                 self.dist_to_turn = dist
                 self.next_action = action
                 self.next_dist = next_d
                 
-                # Feedback Logging
                 if "Turn" in action and dist <= 3:
                     self.feedback_log = f"📳 PREPARE: {action}"
                 else:
