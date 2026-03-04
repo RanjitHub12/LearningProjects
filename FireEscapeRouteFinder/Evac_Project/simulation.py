@@ -81,7 +81,7 @@ class Simulation:
         self.dist_to_exit = 0.0
         self.casualties = 0; self.window_usage_count = 0
         
-        # Navigation State (UPDATED)
+        # Navigation State
         self.instruction = "READY"
         self.dist_to_turn = 0
         self.next_action = "Wait"
@@ -228,22 +228,36 @@ class Simulation:
             
             if target:
                 if target in (self.goals + self.windows):
-                     curr.type = 'EMPTY'; updates.append(curr); agent['node'] = None
-                     self.window_usage_count += 1
+                      curr.type = 'EMPTY'; updates.append(curr); agent['node'] = None
+                      self.window_usage_count += 1
                 elif target.type == 'EMPTY':
                     curr.type = 'EMPTY'; target.type = 'CROWD'; agent['node'] = target; updates.extend([curr, target])
         self.crowd_agents = [a for a in self.crowd_agents if a['node'] is not None]
         return updates
 
-    def toggle_fire(self):
-        valid = [n for n in self.nodes_list if n.type == 'EMPTY' and n != self.start_node]
-        if valid:
-            f = random.choice(valid); f.type = 'FIRE'; f.perceived_type = 'FIRE'
-            self.fire_front.append(f); self.panic_mode = True
+    # --- UPDATED FIRE TOGGLE WITH TARGETING ---
+    def toggle_fire(self, target_pos=None):
+        f = None
+        if target_pos:
+            tx, ty = target_pos
+            if (tx, ty) in self.grid and self.grid[(tx, ty)].type != 'WALL':
+                f = self.grid[(tx, ty)]
+        else:
+            # Random default behavior
+            valid = [n for n in self.nodes_list if n.type == 'EMPTY' and n != self.start_node]
+            if valid:
+                f = random.choice(valid)
+        
+        if f:
+            f.type = 'FIRE'; f.perceived_type = 'FIRE'
+            self.fire_front.append(f)
+            self.panic_mode = True
             self.solver.update_map([f])
+            return True
+        return False
 
     def step(self, manual_move=None):
-        prev_node = self.start_node # Capture previous state for PDR
+        prev_node = self.start_node 
         
         if len(self.fire_front) > 0: self.panic_mode = True
         if (self.start_node in self.goals or self.start_node in self.windows) and self.start_node.type != 'RUBBLE':
@@ -262,7 +276,7 @@ class Simulation:
                 n.visited = True; n.perceived_crowd = n.crowd_density
                 actual = 'EMPTY' if n.type == 'CROWD' else n.type
                 if n.perceived_type != actual and actual != 'FIRE': 
-                     n.perceived_type = actual; perception_updates.append(n)
+                      n.perceived_type = actual; perception_updates.append(n)
         if perception_updates: self.solver.update_map(perception_updates)
         
         # MOVEMENT LOGIC

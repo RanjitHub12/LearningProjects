@@ -53,6 +53,9 @@ feedback = st.session_state.feedback
 with st.sidebar:
     st.header("🎛️ Control Panel")
     
+    # --- UPGRADE 1: PITCH MODE SELECTOR ---
+    view_mode = st.radio("👁️ View Mode", ["Architect View (Simulation)", "User View (App)"])
+
     st.subheader("Manual Override")
     c1, c2, c3 = st.columns([1,1,1])
     with c2: 
@@ -68,10 +71,26 @@ with st.sidebar:
     st.subheader("Simulation Control")
     run_auto = st.checkbox("Engage Auto-Pilot", value=False)
     
+    # --- UPGRADE 2: TACTICAL FIRE CONTROL (CLICK SIMULATION) ---
     st.error("HAZARD CONTROL")
-    if st.button("🔥 TRIGGER ALARM"):
+    with st.expander("🔥 Arsonist Mode (Manual Fire)", expanded=True):
+        st.write("Target Coordinates:")
+        c_x, c_y = st.columns(2)
+        with c_x:
+            tgt_x = st.number_input("X", min_value=0, max_value=59, value=30)
+        with c_y:
+            tgt_y = st.number_input("Y", min_value=0, max_value=59, value=30)
+            
+        if st.button("🔥 IGNITE TARGET"):
+            success = sim.toggle_fire(target_pos=(tgt_x, tgt_y))
+            if success:
+                st.toast(f"Fire started at ({tgt_x}, {tgt_y})", icon="🔥")
+            else:
+                st.toast("Invalid Target (Wall or Bounds)", icon="❌")
+
+    if st.button("🎲 RANDOM FIRE"):
         sim.toggle_fire()
-        st.toast("ALARM TRIGGERED", icon="🔥")
+        st.toast("Random Alarm Triggered", icon="🔥")
         
     if st.button("🔄 RESTART"):
         st.session_state.sim = Simulation(size=60, layout_mgr=LayoutManager())
@@ -93,7 +112,7 @@ with col_info:
         "WAIT": "🛑", "SAFE": "✅", "STOP!": "⚠️", "ESCAPED": "🏃"
     }.get(instruction, "❓")
     
-    # NEW: 2-STEP INSTRUCTION DISPLAY
+    # 2-STEP INSTRUCTION DISPLAY
     next_step_html = ""
     if hasattr(sim, 'next_action') and sim.next_action != "Arrive" and instruction not in ["SAFE", "ESCAPED", "WAIT"]:
         next_step_html = f"<div class='secondary-action'>Then {sim.next_action} for {sim.next_dist}m</div>"
@@ -129,30 +148,38 @@ with col_map:
     C_EXIT = [0.0, 0.8, 0.0]
     C_WINDOW = [0.0, 0.6, 1.0]
     C_CROWD = [1.0, 0.8, 0.0]
+    C_SMOKE = [0.5, 0.5, 0.5]
     
     for y in range(sim.size):
         for x in range(sim.size):
             node = sim.grid[(x,y)]
             if node.type == 'WALL': grid_colors[y, x] = C_WALL
             elif node.type == 'FIRE': grid_colors[y, x] = C_FIRE
+            elif node.type == 'SMOKE': grid_colors[y, x] = C_SMOKE
             elif node.type == 'CROWD': grid_colors[y, x] = C_CROWD
             elif node.type == 'WINDOW': grid_colors[y, x] = C_WINDOW
             elif node in sim.goals: grid_colors[y, x] = C_EXIT
             else: grid_colors[y, x] = C_FLOOR
             
-            # Fog of War (Darken unexplored areas)
-            if not node.visited:
-                grid_colors[y, x] = [c * 0.5 for c in grid_colors[y, x]]
+            # --- UPGRADE 3: FOG OF WAR LOGIC ---
+            if view_mode == "User View (App)":
+                # Hard Fog: If not visited, show PITCH BLACK
+                if not node.visited:
+                     grid_colors[y, x] = [0.0, 0.0, 0.0]
+            else:
+                # Architect View: Soft Fog (Dimmed)
+                if not node.visited:
+                    grid_colors[y, x] = [c * 0.4 for c in grid_colors[y, x]]
 
     ax.imshow(grid_colors, origin='lower')
     
-    # 1. DRAW SENSORS (Gold Dots)
-    if hasattr(sim, 'sensors'):
+    # 1. DRAW SENSORS (Gold Dots) - Only visible in Architect Mode
+    if view_mode == "Architect View (Simulation)" and hasattr(sim, 'sensors'):
         sensor_x = [s.x for s in sim.sensors]
         sensor_y = [s.y for s in sim.sensors]
         ax.scatter(sensor_x, sensor_y, c='gold', s=10, marker='.', alpha=0.5, label="IoT Sensors")
 
-    # 2. Real Position (GPS)
+    # 2. Real Position (GPS) - Always visible (Ground Truth)
     ax.scatter(sim.start_node.x, sim.start_node.y, c='blue', s=150, edgecolors='white', zorder=10, label="Real Pos")
     
     # 3. PDR Estimated Position (Red X)
@@ -160,9 +187,14 @@ with col_map:
         px, py = sim.pdr_trace[-1]
         ax.scatter(px, py, c='red', marker='x', s=120, linewidth=3, zorder=11, label="PDR Est.")
     
-    ax.legend(loc='upper right', fontsize='small', framealpha=0.9)
+    # Dynamic Title
+    title_mode = "ARCHITECT VIEW - GLOBAL MONITORING" if view_mode == "Architect View (Simulation)" else "USER APP - LOCAL VISIBILITY"
+    ax.set_title(f"{title_mode} | Step: {st.session_state.step_count}", color='white', fontsize=10)
+    
+    if view_mode == "Architect View (Simulation)":
+        ax.legend(loc='upper right', fontsize='small', framealpha=0.9)
+        
     ax.set_xticks([]); ax.set_yticks([])
-    ax.set_title(f"Step: {st.session_state.step_count}", color='white')
     
     st.pyplot(fig)
 
