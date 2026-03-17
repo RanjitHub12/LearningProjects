@@ -1,0 +1,30 @@
+# =========================
+# DATASETS (DO NOT UPLOAD)
+# =========================
+# Ignoring all CSV files to prevent GitHub 100MB upload crashes
+*.csv
+*.xlsx
+*.xls
+
+# =========================
+# JUPYTER NOTEBOOK JUNK
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# PYTHON ENVIRONMENTS & CACHE
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+.conda/
+.vscode/
+
+# =========================
+# OS GENERATED FILES
+# =========================
+.DS_Store
+Thumbs.db
