@@ -2,10 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-# System deps for psycopg and compilation
+# System deps for psycopg, compilation, and code execution sandbox
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    g++ \
     libpq-dev \
+    default-jdk-headless \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

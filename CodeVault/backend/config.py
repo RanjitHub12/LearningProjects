@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
 
-    # ─── Gemini AI ────────────────────────────────────────────────
+    # ─── AI Engines ───────────────────────────────────────────────
+    groq_api_key: str = ""
     gemini_api_key: str = ""
 
     # ─── AWS S3 ───────────────────────────────────────────────────

@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # ─── Environment ──────────────────────────────────────────────────
 .env
 .env.local
@@ -21,6 +20,7 @@ env/
 node_modules/
 client/dist/
 client/build/
+frontend/dist/
 .vite/
 
 # ─── IDE ──────────────────────────────────────────────────────────
@@ -29,6 +29,8 @@ client/build/
 *.swp
 *.swo
 *~
+*.iml
+*.code-workspace
 
 # ─── OS ───────────────────────────────────────────────────────────
 .DS_Store
@@ -38,121 +40,15 @@ desktop.ini
 # ─── Docker ───────────────────────────────────────────────────────
 docker-compose.override.yml
 
-# ─── Misc ─────────────────────────────────────────────────────────
-*.log
-coverage/
-.nyc_output/
-=======
-# --- Python Core ---
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-*.db
-*.sqlite3
-
-# --- Virtual Environments ---
-env/
-venv/
-.env/
-.venv/
-pip-wheel-metadata/
-
-# --- Environment Variables & Secrets ---
-.env
-
-# --- Jupyter Notebooks & IPython ---
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-profile_default/
-ipython_config.py
-
-# --- IDEs & Editors ---
-.vscode/
-*.code-workspace
-.idea/
-*.iml
-
-# --- Java (Compiled & Archives) ---
+# ─── Java ─────────────────────────────────────────────────────────
 *.class
 *.jar
 *.war
-*.ear
 
-# --- OS Generated Files ---
-.DS_Store
-Thumbs.db
+# ─── Jupyter ──────────────────────────────────────────────────────
+.ipynb_checkpoints/
 
-# --- Logs & Debugging ---
+# ─── Logs & Misc ─────────────────────────────────────────────────
 *.log
-
-# --- Matplotlib & Visualization ---
-# Ignore generated plots (general)
-*.png
-*.jpg
-*.jpeg
-*.svg
-*.pdf
-~/.matplotlib
-
-# ======================================
-# PROJECT SPECIFIC IGNORES
-# ======================================
-
-# --- Agriculture Project ---
-Agriculture Project/DataSet/
-Agriculture Project/models/*.pth
-Agriculture Project/models/*.pkl
-Agriculture Project/models/*.joblib
-
-# --- QRPhishing Project ---
-# Ignore the main dataset folder
-QRPhishing/DataSet/
-
-# Ignore external test datasets
-QRPhishing/External_Dataset_Test/
-QRPhishing/External_Dataset_Test_Quick/
-
-# Ignore large model weights (PyTorch files)
-QRPhishing/*.pth
-
-# Optional: Ignore generated result images in this folder
-# (Comment this out if you WANT to version control your result graphs)
-QRPhishing/*.png
-
-
-# ======================================
-# DEEPFAKE / DETECTION PROJECT
-# ======================================
-
-# Datasets (usually large / external)
-DeepfakeDetection/DataSet/
-DeepfakeDetection/Dataset/
-DeepfakeDetection/data/
-DeepfakeDetection/datasets/
-
-# Model weights & checkpoints
-DeepfakeDetection/models/*.pth
-DeepfakeDetection/models/*.pt
-DeepfakeDetection/models/*.h5
-DeepfakeDetection/models/*.ckpt
-DeepfakeDetection/models/*.joblib
-DeepfakeDetection/models/*.pkl
-
-# Training artifacts
-DeepfakeDetection/runs/
-DeepfakeDetection/logs/
-DeepfakeDetection/output/
-DeepfakeDetection/results/
-
-# Generated media / predictions
-DeepfakeDetection/*.png
-DeepfakeDetection/*.jpg
-DeepfakeDetection/*.jpeg
-DeepfakeDetection/*.mp4
-DeepfakeDetection/*.avi
-
-# Temporary / cache
-DeepfakeDetection/__pycache__/
-DeepfakeDetection/.cache/
->>>>>>> 8c8340e45b24d6f6d2a40b183af538a1e2529811
+coverage/
+.nyc_output/

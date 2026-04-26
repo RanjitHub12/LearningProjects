@@ -53,17 +53,31 @@ const Empty = styled.div`
   min-height: 180px; text-align: center; color: var(--cv-text-muted); font-size: 0.85rem;
   svg { width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.3; }`;
 
-const DSA = ['Arrays','DP','Trees','Graphs','Stack','Strings','Greedy','Binary Search'];
-
 export default function Dashboard() {
-  const [total, setTotal] = useState(null);
+  const [problems, setProblems] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch('/api/v1/problems?limit=200').then(r => r.ok ? r.json() : [])
-      .then(d => setTotal(d.length)).catch(() => setTotal(0));
+      .then(d => setProblems(d)).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  const loading = total === null;
+  // Dynamically collect all unique tags and their counts from uploaded problems
+  const tagCounts = {};
+  problems.forEach(p => {
+    (p.dsa_tags || []).forEach(tag => {
+      tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+    });
+  });
+  const allTags = Object.keys(tagCounts);
+  const maxCount = Math.max(...Object.values(tagCounts), 1);
+  const radarData = allTags.map(tag => ({
+    subject: tag,
+    score: Math.round((tagCounts[tag] / maxCount) * 100),
+    count: tagCounts[tag],
+  }));
+
+  const total = problems.length;
 
   return (
     <Page>
@@ -79,7 +93,7 @@ export default function Dashboard() {
         </Stat>
         <Stat $bg="rgba(34,197,94,0.1)" $color="#22c55e">
           <div className="icon"><Activity size={20} /></div>
-          <div><div className="value">{loading ? '—' : 0}</div><div className="label">Solved Today</div></div>
+          <div><div className="value">{loading ? '—' : allTags.length}</div><div className="label">Topics Covered</div></div>
         </Stat>
         <Stat $bg="rgba(245,158,11,0.1)" $color="#f59e0b">
           <div className="icon"><Flame size={20} /></div>
@@ -94,18 +108,18 @@ export default function Dashboard() {
       <Grid>
         <Card>
           <CardHead><TrendingUp /> Proficiency Radar</CardHead>
-          {total > 0 ? (
+          {radarData.length > 0 ? (
             <ResponsiveContainer width="100%" height={260}>
-              <RadarChart data={DSA.map(s => ({ subject: s, score: 0 }))} cx="50%" cy="50%" outerRadius="70%">
+              <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
                 <PolarGrid stroke="var(--cv-border-default)" />
                 <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--cv-text-muted)', fontSize: 11 }} />
                 <PolarRadiusAxis angle={90} tick={false} domain={[0, 100]} />
-                <Tooltip />
-                <Radar dataKey="score" stroke="var(--cv-accent)" fill="var(--cv-accent)" fillOpacity={0.12} strokeWidth={2} />
+                <Tooltip formatter={(v, n, p) => [`${p.payload.count} problems`, p.payload.subject]} />
+                <Radar dataKey="score" stroke="var(--cv-accent)" fill="var(--cv-accent)" fillOpacity={0.15} strokeWidth={2} />
               </RadarChart>
             </ResponsiveContainer>
           ) : (
-            <Empty><TrendingUp />Complete practice sessions to generate proficiency data</Empty>
+            <Empty><TrendingUp />Upload problems to see your topic coverage</Empty>
           )}
         </Card>
 

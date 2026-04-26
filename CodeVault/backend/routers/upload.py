@@ -1,6 +1,6 @@
 """
 Upload Router — Single file and bulk upload endpoints.
-Phase 2: AI-powered ingestion pipeline.
+Phase 2: AI-powered ingestion pipeline with deep-scan extraction.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -21,12 +21,21 @@ class SingleFileUpload(BaseModel):
     language: str = "cpp"
 
 
+class ApproachSummary(BaseModel):
+    approach_name: str
+    time_complexity: str = ""
+    space_complexity: str = ""
+
+
 class UploadResponse(BaseModel):
     problem_id: str
     title: str
     difficulty: str
     dsa_tags: list[str]
     approaches_found: int
+    approach_names: list[str]
+    has_deep_analysis: bool
+    problem_statement: str = ""
     message: str
 
 
@@ -37,7 +46,7 @@ async def upload_single_file(
 ):
     """Upload and analyze a single code file through the AI engine."""
 
-    # Run AI analysis (Gemini or heuristic fallback)
+    # Run AI analysis (Groq → Gemini → heuristic fallback)
     analysis = await analyze_code_file(
         content=payload.content,
         filename=payload.filename,
@@ -62,6 +71,10 @@ async def upload_single_file(
     }
     lang_enum = lang_map.get(payload.language, SupportedLanguage.CPP)
 
+    extracted = analysis.get('extracted_approaches', [])
+    deep = analysis.get('deep_analysis', None)
+    approach_names = [a.get('approach_name', f'Approach {i+1}') for i, a in enumerate(extracted)]
+
     # Check for duplicate by title (basic dedup)
     existing = await db.execute(
         select(VaultProblem).where(VaultProblem.title == analysis.get('title', ''))
@@ -74,8 +87,8 @@ async def upload_single_file(
             problem_id=existing_problem.id,
             language=lang_enum,
             solution_type=SolutionType.ORIGINAL_UPLOAD,
-            extracted_approaches=analysis.get('extracted_approaches', []),
-            deep_analysis=None,
+            extracted_approaches=extracted,
+            deep_analysis=deep,
         )
         db.add(solution)
         await db.flush()
@@ -85,7 +98,10 @@ async def upload_single_file(
             title=existing_problem.title,
             difficulty=existing_problem.difficulty.value,
             dsa_tags=existing_problem.dsa_tags or [],
-            approaches_found=len(analysis.get('extracted_approaches', [])),
+            approaches_found=len(extracted),
+            approach_names=approach_names,
+            has_deep_analysis=deep is not None,
+            problem_statement=existing_problem.problem_statement or "",
             message="Added as new solution to existing problem",
         )
 
@@ -106,8 +122,8 @@ async def upload_single_file(
         problem_id=problem.id,
         language=lang_enum,
         solution_type=SolutionType.ORIGINAL_UPLOAD,
-        extracted_approaches=analysis.get('extracted_approaches', []),
-        deep_analysis=None,
+        extracted_approaches=extracted,
+        deep_analysis=deep,
     )
     db.add(solution)
     await db.flush()
@@ -117,6 +133,9 @@ async def upload_single_file(
         title=problem.title,
         difficulty=problem.difficulty.value,
         dsa_tags=problem.dsa_tags or [],
-        approaches_found=len(analysis.get('extracted_approaches', [])),
-        message="Problem created and solution stored",
+        approaches_found=len(extracted),
+        approach_names=approach_names,
+        has_deep_analysis=deep is not None,
+        problem_statement=problem.problem_statement or "",
+        message="Problem created and solution stored successfully",
     )

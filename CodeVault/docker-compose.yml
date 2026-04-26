@@ -47,6 +47,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-codevault}:${POSTGRES_PASSWORD:-codevault_secret}@sandbox-postgres:5432/${POSTGRES_DB:-codevault_db}
       - REDIS_URL=redis://redis:6379/0
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-codevault-files}
@@ -72,6 +73,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-codevault}:${POSTGRES_PASSWORD:-codevault_secret}@sandbox-postgres:5432/${POSTGRES_DB:-codevault_db}
       - REDIS_URL=redis://redis:6379/0
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-codevault-files}
