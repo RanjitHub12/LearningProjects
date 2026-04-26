@@ -1,0 +1,32 @@
+# ─── Core Framework ───────────────────────────────────────────────
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+pydantic==2.11.1
+pydantic-settings==2.8.1
+python-dotenv==1.1.0
+
+# ─── Database ─────────────────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.40
+asyncpg==0.30.0
+alembic==1.15.2
+pgvector==0.3.6
+
+# ─── Authentication ──────────────────────────────────────────────
+python-jose[cryptography]==3.4.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.20
+
+# ─── Async Workers ───────────────────────────────────────────────
+celery[redis]==5.5.1
+redis==5.3.0
+
+# ─── AI & Cloud ───────────────────────────────────────────────────
+google-genai==1.14.0
+boto3==1.38.4
+
+# ─── Monitoring ───────────────────────────────────────────────────
+sentry-sdk[fastapi]==2.26.1
+
+# ─── Utilities ────────────────────────────────────────────────────
+httpx==0.28.1
+aiofiles==24.1.0

@@ -1,0 +1,89 @@
+version: "3.9"
+
+services:
+  # ─── Primary Application Database ───────────────────────────────
+  sandbox-postgres:
+    image: pgvector/pgvector:pg16
+    container_name: codevault-postgres
+    restart: unless-stopped
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codevault}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codevault_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-codevault_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codevault -d codevault_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis (Celery Message Broker) ──────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: codevault-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── FastAPI Backend ────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codevault-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-codevault}:${POSTGRES_PASSWORD:-codevault_secret}@sandbox-postgres:5432/${POSTGRES_DB:-codevault_db}
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-codevault-files}
+      - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      sandbox-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ─── Celery Worker (Async AI Ingestion) ─────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: codevault-worker
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-codevault}:${POSTGRES_PASSWORD:-codevault_secret}@sandbox-postgres:5432/${POSTGRES_DB:-codevault_db}
+      - REDIS_URL=redis://redis:6379/0
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME:-codevault-files}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      sandbox-postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A workers.celery_app worker --loglevel=info --concurrency=2
+
+volumes:
+  pgdata:
+    driver: local

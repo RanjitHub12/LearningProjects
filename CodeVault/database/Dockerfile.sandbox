@@ -1,0 +1,15 @@
+# Lightweight sandbox container for code execution
+FROM python:3.13-slim
+
+# Install compilers for C++ and Java support
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    g++ \
+    default-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for sandboxed execution
+RUN useradd --create-home --shell /bin/bash sandbox
+USER sandbox
+WORKDIR /home/sandbox
+
+# Network access will be disabled via docker-compose network config
