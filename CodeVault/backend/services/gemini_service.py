@@ -60,111 +60,48 @@ def _get_gemini_client():
 
 
 # ─── System Prompt ──────────────────────────────────────────────
-EXTRACTION_PROMPT = """You are an expert competitive programming and DSA code analyzer for a reverse-LeetCode platform called CodeVault. You MUST produce highly detailed, educational analysis.
+EXTRACTION_PROMPT = """You are an expert DSA code analyzer for CodeVault (reverse-LeetCode platform). Analyze the given code file and return ONLY valid JSON matching this schema:
 
-Given a code file, perform an exhaustive deep-scan:
-
-## 1. Problem Identification
-- Identify the EXACT algorithmic problem (e.g., "Valid Parentheses", "Two Sum", "Longest Palindromic Substring")
-- Do NOT use the filename as the title — infer the actual problem name from the code logic
-- Write a comprehensive problem statement in Markdown with:
-  - Clear problem description (2-3 paragraphs)
-  - Input/output format
-  - Constraints (infer from code patterns)
-  - 2-3 examples with explanations
-
-## 2. Multi-Approach Extraction
-Scan the ENTIRE file for multiple solutions:
-- Look for commented-out code blocks representing alternative approaches
-- Look for multiple functions solving the same problem differently
-- Look for labels like "Approach 1", "Brute Force", "Optimized", etc.
-- If commented-out code exists, UNCOMMENT it and make it executable
-- Even without labels, detect approaches from code patterns (recursion vs DP vs greedy)
-- Give each approach a DESCRIPTIVE name (e.g., "Stack-Based O(n) Solution", "Brute Force Nested Loops")
-
-## 3. For EACH approach provide:
-- Descriptive approach name
-- Complete, standalone, executable code
-- Time complexity with justification
-- Space complexity with justification
-- Detailed explanation (3-5 sentences minimum) covering WHY this approach works
-
-## 4. Classification
-- Difficulty: Easy/Medium/Hard/Impossible (based on actual LeetCode-style classification)
-- DSA tags from: [Array, String, DP, Tree, Graph, Stack, Queue, Linked List, Binary Search, Hash Map, Heap, Greedy, Recursion, Backtracking, Sorting, Two Pointers, Sliding Window, Bit Manipulation, Math, Trie, Union Find, Design]
-
-## 5. Test Cases
-Generate 3-5 test cases including:
-- Basic case
-- Edge cases (empty input, single element, max size)
-- Tricky cases
-Each with clear explanation of what it tests
-
-## 6. Deep Analysis
-For each approach provide:
-- Detailed summary (paragraph)
-- Key insights about the approach
-- Line-by-line breakdown of the MOST IMPORTANT 10-20 lines
-
-Return ONLY valid JSON in this exact structure:
 {
-  "title": "Valid Parentheses",
-  "problem_statement": "# Valid Parentheses\\n\\nGiven a string `s` containing just the characters `(`, `)`, `{`, `}`, `[` and `]`, determine if the input string is valid.\\n\\nAn input string is valid if:\\n1. Open brackets must be closed by the same type of brackets.\\n2. Open brackets must be closed in the correct order.\\n3. Every close bracket has a corresponding open bracket of the same type.\\n\\n## Constraints\\n- `1 <= s.length <= 10^4`\\n- `s` consists of parentheses only `()[]{}`.\\n\\n## Examples\\n\\n**Example 1:**\\n- Input: s = \\"()\\"\\n- Output: true\\n\\n**Example 2:**\\n- Input: s = \\"()[]{}\\"\\n- Output: true\\n\\n**Example 3:**\\n- Input: s = \\"(]\\"\\n- Output: false",
-  "difficulty": "Easy",
-  "dsa_tags": ["Stack", "String"],
+  "title": "<actual algorithmic problem name, NOT filename>",
+  "problem_statement": "<markdown: 2-3 paragraph description, input/output, constraints, 2-3 examples>",
+  "difficulty": "Easy|Medium|Hard|Impossible",
+  "dsa_tags": ["<from: Array,String,DP,Tree,Graph,Stack,Queue,Linked List,Binary Search,Hash Map,Heap,Greedy,Recursion,Backtracking,Sorting,Two Pointers,Sliding Window,Bit Manipulation,Math,Trie,Union Find,Design>"],
   "extracted_approaches": [
     {
-      "approach_name": "Stack-Based Matching",
-      "raw_code": "full executable code here",
-      "time_complexity": "O(n)",
-      "space_complexity": "O(n)",
-      "explanation": "We use a stack to track opening brackets. For each closing bracket, we check if it matches the top of the stack. If the stack is empty at the end, all brackets were matched correctly. This works because brackets must be matched in LIFO order, which is exactly what a stack provides."
+      "approach_name": "<descriptive, e.g. 'Stack-Based O(n)'>",
+      "raw_code": "<complete standalone executable code>",
+      "time_complexity": "O(...)",
+      "space_complexity": "O(...)",
+      "explanation": "<3+ sentences on WHY this approach works>"
     }
   ],
   "generated_test_cases": [
-    {"input": "()", "expected_output": "true", "explanation": "Basic matching pair"},
-    {"input": "([)]", "expected_output": "false", "explanation": "Interleaved brackets - order matters"},
-    {"input": "", "expected_output": "true", "explanation": "Edge case: empty string is valid"},
-    {"input": "((((", "expected_output": "false", "explanation": "All opening, no closing brackets"}
+    {"input": "<stdin>", "expected_output": "<stdout>", "explanation": "<what it tests>"}
   ],
   "deep_analysis": {
-    "overall_summary": "This problem tests understanding of stack data structure for bracket matching. The key insight is that valid bracket sequences follow LIFO ordering, making a stack the natural choice. The optimal solution runs in O(n) time with O(n) space.",
+    "overall_summary": "<paragraph>",
     "approaches": [
       {
-        "approach_name": "Stack-Based Matching",
-        "summary": "Uses a stack to maintain opening brackets. When a closing bracket is encountered, we pop from the stack and verify the match. This elegantly handles nested brackets of any depth.",
-        "time_complexity": "O(n)",
-        "space_complexity": "O(n)",
-        "line_breakdown": [
-          {"line_number": 1, "code": "stack<char> st;", "explanation": "Initialize an empty stack to hold opening brackets as we encounter them"},
-          {"line_number": 2, "code": "for(char c : s)", "explanation": "Iterate through each character in the input string exactly once"},
-          {"line_number": 3, "code": "if(c == '(' || c == '{' || c == '[')", "explanation": "Check if current character is an opening bracket"},
-          {"line_number": 4, "code": "st.push(c);", "explanation": "Push opening brackets onto the stack for later matching"},
-          {"line_number": 5, "code": "else if(st.empty() || st.top() != match)", "explanation": "For closing brackets: if stack is empty (no opener) or top doesn't match, string is invalid"}
-        ]
+        "approach_name": "...",
+        "summary": "<paragraph>",
+        "time_complexity": "O(...)",
+        "space_complexity": "O(...)",
+        "line_breakdown": [{"line_number": 1, "code": "...", "explanation": "..."}]
       }
     ],
-    "key_insights": [
-      "Bracket matching requires LIFO ordering — a stack is the perfect data structure",
-      "We can optimize by mapping closing brackets to their opening counterparts",
-      "Early termination: if we encounter a mismatch, we can return false immediately",
-      "Final check: the stack must be empty — unmatched opening brackets mean invalid input"
-    ],
-    "common_mistakes": [
-      "Forgetting to check if the stack is empty before popping (causes runtime error)",
-      "Only checking for matching pairs without verifying correct nesting order",
-      "Not handling the edge case of a string with only opening brackets",
-      "Using a counter instead of a stack — this fails for interleaved brackets like ([)]"
-    ]
+    "key_insights": ["..."],
+    "common_mistakes": ["..."]
   }
 }
 
-CRITICAL RULES:
-- The title MUST be the actual problem name, NOT the filename
-- The problem_statement MUST be detailed with examples and constraints
-- The explanation for each approach MUST be at least 3 sentences
-- Generate AT LEAST 3 test cases with explanations
-- The deep_analysis MUST include key_insights and common_mistakes"""
+Rules:
+- Identify the EXACT problem from code logic (not filename).
+- Scan for multiple approaches: commented-out alt code, multiple functions, "Approach N" / "Brute Force" / "Optimized" labels. Uncomment commented blocks to make executable.
+- Generate 3-5 test cases (basic, edge, tricky). Inputs/outputs are stdin/stdout for the program as written.
+- line_breakdown: cover 5-15 most important lines per approach.
+- key_insights: 3-5 items. common_mistakes: 2-4 items.
+- Each approach explanation MUST be 3+ sentences."""
 
 
 # ─── Main Entry Point ──────────────────────────────────────────
@@ -217,7 +154,7 @@ async def _groq_analyze(client, content: str, filename: str, language: str) -> d
             {"role": "user", "content": user_msg},
         ],
         temperature=0.1,
-        max_tokens=16000,
+        max_tokens=6000,
         response_format={"type": "json_object"},
     )
     raw = response.choices[0].message.content

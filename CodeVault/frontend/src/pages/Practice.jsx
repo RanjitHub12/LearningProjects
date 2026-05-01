@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { Target, Clock, AlertTriangle, Play, ChevronRight } from 'lucide-react';
+import { Target, Play } from 'lucide-react';
 
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
 const Header = styled.header`margin-bottom: 28px;
@@ -77,7 +77,6 @@ export default function Practice() {
         <>
           <InfoBar>
             <Badge><Target size={16} /> {problems.length} in queue</Badge>
-            <Badge $color="var(--cv-warning)"><AlertTriangle size={16} /> Tab-switch detection active</Badge>
           </InfoBar>
 
           {problems.map(p => (

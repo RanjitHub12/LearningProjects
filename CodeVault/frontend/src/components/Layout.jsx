@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { useThemeMode } from '../context/ThemeContext';
 import {
   LayoutDashboard, FolderOpen, Target, Upload, BarChart3,
-  Settings, Sun, Moon, Zap, Code2, ChevronLeft, ChevronRight
+  Settings, Sun, Moon, Zap, Code2, PanelLeftClose, PanelLeft, Flame
 } from 'lucide-react';
 import styled from 'styled-components';
+import { getStreak } from '../lib/activity';
 
 const Shell = styled.div`display: flex; min-height: 100vh;`;
 
@@ -20,18 +21,33 @@ const Sidebar = styled.aside`
   overflow: hidden;
 `;
 
+const TopRow = styled.div`
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 ${p => p.$c ? '0' : '4px'}; margin-bottom: ${p => p.$c ? '20px' : '28px'};
+  justify-content: ${p => p.$c ? 'center' : 'space-between'};
+`;
+
 const Brand = styled.div`
   display: flex; align-items: center; gap: 10px;
-  padding: 0 ${p => p.$c ? '0' : '10px'}; margin-bottom: ${p => p.$c ? '20px' : '32px'};
-  justify-content: ${p => p.$c ? 'center' : 'flex-start'};
   .icon { width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
     background: var(--cv-gradient-primary); display: flex; align-items: center;
     justify-content: center; color: #fff; box-shadow: var(--cv-glow-accent); }
   .name { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.03em;
     color: var(--cv-text-primary); white-space: nowrap;
-    opacity: ${p => p.$c ? '0' : '1'}; transition: opacity 0.15s; }
+    opacity: ${p => p.$c ? '0' : '1'};
+    width: ${p => p.$c ? '0' : 'auto'}; overflow: hidden;
+    transition: opacity 0.15s; }
   .name span { background: var(--cv-gradient-primary); -webkit-background-clip: text;
     -webkit-text-fill-color: transparent; background-clip: text; }
+`;
+
+const TopToggle = styled.button`
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px; border: none;
+  background: transparent; cursor: pointer; flex-shrink: 0;
+  color: var(--cv-text-muted);
+  svg { width: 17px; height: 17px; }
+  &:hover { background: var(--cv-accent-muted); color: var(--cv-accent); }
 `;
 
 const NavGroup = styled.div`
@@ -66,16 +82,6 @@ const Footer = styled.div`
   display: flex; flex-direction: column; gap: 4px;
 `;
 
-const ToggleBtn = styled.button`
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 8px; border-radius: 8px; border: none;
-  background: transparent; cursor: pointer;
-  font-size: 0.78rem; font-weight: 500; font-family: inherit;
-  color: var(--cv-text-muted); width: 100%;
-  svg { width: 16px; height: 16px; flex-shrink: 0; }
-  &:hover { background: var(--cv-accent-muted); color: var(--cv-accent); }
-`;
-
 const ThemeBtn = styled.button`
   display: flex; align-items: center; gap: 10px;
   padding: 9px ${p => p.$c ? '0' : '12px'}; border-radius: 8px; border: none;
@@ -87,6 +93,19 @@ const ThemeBtn = styled.button`
   .ltext { white-space: nowrap; opacity: ${p => p.$c ? '0' : '1'};
     width: ${p => p.$c ? '0' : 'auto'}; overflow: hidden; transition: opacity 0.15s; }
   &:hover { background: var(--cv-accent-muted); color: var(--cv-text-primary); }
+`;
+
+const StreakBadge = styled.div`
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px ${p => p.$c ? '0' : '12px'}; border-radius: 9px; margin-bottom: 4px;
+  justify-content: ${p => p.$c ? 'center' : 'flex-start'};
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.18);
+  color: var(--cv-warning, #f59e0b);
+  svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .val { font-weight: 700; font-size: .9rem; }
+  .lbl { font-size: .72rem; color: var(--cv-text-muted); white-space: nowrap;
+    opacity: ${p => p.$c ? '0' : '1'}; width: ${p => p.$c ? '0' : 'auto'}; overflow: hidden; }
 `;
 
 const StatusRow = styled.div`
@@ -109,15 +128,34 @@ const Main = styled.main`
 export default function Layout() {
   const { mode, toggle } = useThemeMode();
   const [collapsed, setCollapsed] = useState(false);
+  const [streak, setStreak] = useState(() => getStreak());
   const c = collapsed;
+
+  useEffect(() => {
+    const refresh = () => setStreak(getStreak());
+    refresh();
+    window.addEventListener('cv:activity-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('cv:activity-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
 
   return (
     <Shell>
       <Sidebar $collapsed={c}>
-        <Brand $c={c}>
-          <div className="icon"><Zap size={18} /></div>
-          <div className="name">Code<span>Vault</span></div>
-        </Brand>
+        <TopRow $c={c}>
+          {!c && (
+            <Brand $c={c}>
+              <div className="icon"><Zap size={18} /></div>
+              <div className="name">Code<span>Vault</span></div>
+            </Brand>
+          )}
+          <TopToggle onClick={() => setCollapsed(!c)} title={c ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={c ? 'Expand sidebar' : 'Collapse sidebar'}>
+            {c ? <PanelLeft /> : <PanelLeftClose />}
+          </TopToggle>
+        </TopRow>
 
         <NavGroup $c={c}>
           <div className="label">Overview</div>
@@ -135,14 +173,16 @@ export default function Layout() {
         </NavGroup>
 
         <Footer>
+          <StreakBadge $c={c} title={`Current streak: ${streak.current} day${streak.current === 1 ? '' : 's'} · Longest: ${streak.longest}`}>
+            <Flame />
+            <span className="val">{streak.current}</span>
+            <span className="lbl">day{streak.current === 1 ? '' : 's'} streak</span>
+          </StreakBadge>
           <ThemeBtn onClick={toggle} $c={c}>
             {mode === 'dark' ? <Sun /> : <Moon />}
             <span className="ltext">{mode === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </ThemeBtn>
           <StatusRow $c={c}><span className="dot" /><span className="ltext">API Connected</span></StatusRow>
-          <ToggleBtn onClick={() => setCollapsed(!c)} title={c ? 'Expand' : 'Collapse'}>
-            {c ? <ChevronRight /> : <ChevronLeft />}
-          </ToggleBtn>
         </Footer>
       </Sidebar>
       <Main $collapsed={c}><Outlet /></Main>
