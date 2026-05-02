@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { FolderOpen, Search, ChevronRight } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
-const Header = styled.header`margin-bottom: 28px;
-  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
-  p { color: var(--cv-text-secondary); font-size: 0.9rem; }`;
 
 const Toolbar = styled.div`
   display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;`;
@@ -73,7 +71,12 @@ export default function ProblemVault() {
 
   return (
     <Page>
-      <Header><h1>Problem Vault</h1><p>Browse and search your ingested solutions.</p></Header>
+      <PageHeader
+        eyebrow="The Vault"
+        title="Problem"
+        accent="archive."
+        subtitle="Every solution you've ingested, parsed, and catalogued. Search, filter, and step into the workspace to revisit any of them."
+      />
 
       <Toolbar>
         <SearchBox>

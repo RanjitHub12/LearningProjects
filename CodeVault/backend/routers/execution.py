@@ -103,8 +103,15 @@ async def execute_code(req: ExecutionRequest):
                 stderr=asyncio.subprocess.PIPE,
                 cwd=tmpdir,
             )
+            # Always end stdin with a newline. Many CLI programs
+            # (cin >> x, scanf("%d"), input()) block on a final read
+            # waiting for terminator; without it the process hangs until
+            # the timeout fires even though the user "typed" the value.
+            stdin_bytes = req.stdin.encode()
+            if stdin_bytes and not stdin_bytes.endswith(b"\n"):
+                stdin_bytes += b"\n"
             stdout, stderr = await asyncio.wait_for(
-                proc.communicate(input=req.stdin.encode()),
+                proc.communicate(input=stdin_bytes),
                 timeout=req.timeout_seconds,
             )
             elapsed = (time.perf_counter() - start) * 1000

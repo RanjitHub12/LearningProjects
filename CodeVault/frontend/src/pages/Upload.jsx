@@ -1,16 +1,16 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
 import styled, { keyframes } from 'styled-components';
 import {
   Upload as UploadIcon, FileCode, CheckCircle, AlertCircle,
-  Loader, ChevronRight, Zap, Brain, Tag, ArrowRight
+  Loader, ChevronRight, Zap, Brain, Tag, ArrowRight, Folder, FolderPlus, Check,
 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
+import { getFolders, createFolder, addSnippet } from '../lib/folders';
+import { useToast } from '../components/Toast';
 
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
-const Header = styled.header`margin-bottom: 32px;
-  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
-  p { color: var(--cv-text-secondary); font-size: 0.9rem; }`;
 
 const DropArea = styled.div`
   border: 2px dashed ${p => p.$active ? 'var(--cv-accent)' : 'var(--cv-border-default)'};
@@ -105,11 +105,59 @@ const SUPPORTED_EXT = ['.cpp', '.java', '.py', '.sql', '.c', '.js', '.ts'];
 
 export default function UploadPage() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [files, setFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState({});       // filename → 'done' | 'error'
   const [analysisResults, setAnalysisResults] = useState([]); // array of API responses
   const [currentFile, setCurrentFile] = useState('');
+
+  // Destination folder. The user must pick (or create) one before files
+  // can be dropped — every successful upload also lands here as a snippet
+  // linked to its newly-created vault problem, so the Folders page can
+  // browse / filter / nest them later.
+  const [folders, setFolders] = useState([]);
+  const [destFolderId, setDestFolderId] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  useEffect(() => {
+    setFolders(getFolders());
+    const onChange = () => setFolders(getFolders());
+    window.addEventListener('cv:folders-changed', onChange);
+    return () => window.removeEventListener('cv:folders-changed', onChange);
+  }, []);
+
+  // Render folders as an indented dropdown so nested paths read naturally
+  // (e.g. "    Hard" under "  May" under "2026").
+  const folderOptions = useMemo(() => {
+    const byParent = {};
+    for (const f of folders) {
+      const k = f.parentId || '__root__';
+      (byParent[k] = byParent[k] || []).push(f);
+    }
+    const out = [];
+    const walk = (parentId, depth) => {
+      const arr = (byParent[parentId || '__root__'] || []).sort((a, b) => a.name.localeCompare(b.name));
+      for (const f of arr) {
+        out.push({ id: f.id, label: '  '.repeat(depth) + f.name });
+        walk(f.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return out;
+  }, [folders]);
+
+  const handleCreateFolder = () => {
+    const f = createFolder(newFolderName);
+    if (!f) {
+      toast({ kind:'warn', title:'Could not create folder',
+        message: newFolderName.trim() ? 'A top-level folder with that name already exists.' : 'Folder name is required.' });
+      return;
+    }
+    setDestFolderId(f.id); setNewFolderName(''); setCreatingFolder(false);
+    toast({ kind:'success', title:'Folder created', message:`Uploads will land in "${f.name}".` });
+  };
 
   const onDrop = useCallback((accepted) => {
     const valid = accepted.filter(f => SUPPORTED_EXT.some(e => f.name.endsWith(e)));
@@ -122,26 +170,43 @@ export default function UploadPage() {
 
   const handleUpload = async () => {
     if (!files.length) return;
+    if (!destFolderId) {
+      toast({ kind:'warn', title:'Pick a destination folder', message:'Choose or create a folder before uploading so files stay organised.' });
+      return;
+    }
     setUploading(true);
     setAnalysisResults([]);
 
+    let savedToFolder = 0;
     for (const file of files) {
       setCurrentFile(file.name);
       try {
         const text = await file.text();
+        const language = detectLang(file.name);
         const res = await fetch('/api/v1/upload/single', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: file.name,
-            content: text,
-            language: detectLang(file.name),
-          }),
+          body: JSON.stringify({ filename: file.name, content: text, language }),
         });
         if (res.ok) {
           const data = await res.json();
           setResults(prev => ({ ...prev, [file.name]: 'done' }));
           setAnalysisResults(prev => [...prev, { ...data, filename: file.name }]);
+          // Mirror into the chosen local folder so it shows up alongside
+          // hand-authored snippets and is filterable by difficulty / tag.
+          try {
+            addSnippet({
+              folderId: destFolderId,
+              title: data.title || file.name,
+              language,
+              code: text,
+              description: data.problem_statement || '',
+              difficulty: data.difficulty || '',
+              tags: data.dsa_tags || [],
+              vaultProblemId: data.problem_id,
+            });
+            savedToFolder += 1;
+          } catch {}
         } else {
           setResults(prev => ({ ...prev, [file.name]: 'error' }));
         }
@@ -151,6 +216,10 @@ export default function UploadPage() {
     }
     setUploading(false);
     setCurrentFile('');
+    if (savedToFolder > 0) {
+      const fname = folders.find(f => f.id === destFolderId)?.name || 'folder';
+      toast({ kind:'success', title:'Uploads filed', message:`${savedToFolder} file${savedToFolder===1?'':'s'} added to "${fname}".` });
+    }
   };
 
   const detectLang = (name) => {
@@ -165,16 +234,92 @@ export default function UploadPage() {
 
   return (
     <Page>
-      <Header>
-        <h1>Bulk Upload</h1>
-        <p>Drop solution files or entire folders. The AI engine parses, analyzes, and catalogs each file automatically.</p>
-      </Header>
+      <PageHeader
+        eyebrow="Ingestion"
+        title="Bulk"
+        accent="upload."
+        subtitle="Drop solution files or entire folders. The AI engine parses each file, then files them into the local folder you pick — so everything stays organised and filterable."
+      />
 
-      <DropArea {...getRootProps()} $active={isDragActive}>
+      {/* ── Step 1 · Destination folder ────────────────────────────
+          Required before any drop / upload happens. Uploads land in this
+          folder as snippets linked to the new vault problem id. */}
+      <div style={{
+        background: 'var(--cv-glass-bg)', backdropFilter: 'blur(20px)',
+        border: '1px solid var(--cv-border-subtle)', borderRadius: 14,
+        padding: 18, marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{
+            width:22, height:22, borderRadius: 999,
+            background: destFolderId ? 'var(--cv-success)' : 'var(--cv-accent)', color:'#fff',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            fontSize:'.7rem', fontWeight:700,
+          }}>
+            {destFolderId ? <Check size={12}/> : '1'}
+          </span>
+          <span style={{ fontSize:'.78rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'.06em', color:'var(--cv-text-secondary)' }}>
+            Destination folder
+          </span>
+          <span style={{ flex: 1 }}/>
+          {destFolderId && (
+            <span style={{ fontSize:'.74rem', color:'var(--cv-text-muted)' }}>
+              Files will be filed into <strong style={{ color:'var(--cv-text-primary)' }}>{folderOptions.find(o=>o.id===destFolderId)?.label?.trim()}</strong>
+            </span>
+          )}
+        </div>
+        <div style={{ display:'flex', gap:10, flexWrap:'wrap', alignItems:'center' }}>
+          <Folder size={16} style={{ color:'var(--cv-accent)', flexShrink:0 }}/>
+          <select
+            value={destFolderId}
+            onChange={e=>setDestFolderId(e.target.value)}
+            disabled={uploading}
+            style={{
+              flex:1, minWidth: 220, padding:'9px 12px', borderRadius:9,
+              background:'var(--cv-bg-tertiary)', border:'1px solid var(--cv-border-subtle)',
+              color:'var(--cv-text-primary)', fontFamily:'inherit', fontSize:'.88rem', outline:'none',
+            }}
+          >
+            <option value="">— Pick a folder —</option>
+            {folderOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </select>
+          {!creatingFolder ? (
+            <Btn onClick={()=>setCreatingFolder(true)} disabled={uploading}>
+              <FolderPlus size={14}/> New folder
+            </Btn>
+          ) : (
+            <div style={{ display:'flex', gap:6 }}>
+              <input
+                autoFocus
+                value={newFolderName}
+                onChange={e=>setNewFolderName(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter') handleCreateFolder(); if(e.key==='Escape'){ setCreatingFolder(false); setNewFolderName(''); }}}
+                placeholder="New top-level folder…"
+                style={{ padding:'9px 12px', borderRadius:9, border:'1px solid var(--cv-accent)',
+                  background:'var(--cv-bg-tertiary)', color:'var(--cv-text-primary)', fontSize:'.85rem', fontFamily:'inherit', outline:'none', minWidth: 220 }}
+              />
+              <Btn $primary onClick={handleCreateFolder} disabled={!newFolderName.trim()}>Create</Btn>
+              <Btn onClick={()=>{ setCreatingFolder(false); setNewFolderName(''); }}>Cancel</Btn>
+            </div>
+          )}
+        </div>
+        {!destFolderId && !creatingFolder && (
+          <div style={{ fontSize:'.78rem', color:'var(--cv-text-muted)', lineHeight:1.5 }}>
+            Pick an existing folder or create a new one. You can nest deeper folders later inside the Folders page (e.g. <strong style={{ color:'var(--cv-text-secondary)' }}>2026 → May → Hard → Graphs</strong>).
+          </div>
+        )}
+      </div>
+
+      <DropArea {...getRootProps()} $active={isDragActive} style={!destFolderId ? { opacity: .55, pointerEvents: 'none', filter: 'grayscale(.3)' } : undefined}>
         <input {...getInputProps()} />
         <UploadIcon size={40} />
-        <div className="title">{isDragActive ? 'Drop files here...' : 'Drag & drop solution files'}</div>
-        <div className="sub">Supports .cpp, .java, .py, .sql — or click to browse</div>
+        <div className="title">
+          {!destFolderId ? 'Pick a destination folder first' :
+           isDragActive ? 'Drop files here…' : 'Drag & drop solution files'}
+        </div>
+        <div className="sub">
+          {!destFolderId ? 'Step 1 above unlocks this.' : 'Supports .cpp, .java, .py, .sql — or click to browse'}
+        </div>
       </DropArea>
 
       {files.length > 0 && (

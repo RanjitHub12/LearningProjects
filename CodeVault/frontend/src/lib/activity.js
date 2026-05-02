@@ -17,6 +17,32 @@ function read() {
   catch { return []; }
 }
 
+/**
+ * Day key for an activity entry, in the user's *local* timezone.
+ *
+ * solvedAt is an ISO timestamp; calling `.slice(0,10)` on the raw string
+ * gives a UTC date, which means a solve at 4am local time in IST (UTC+5:30)
+ * lands on yesterday's UTC date and silently disappears from "today" on the
+ * contribution calendar. We convert to a local YYYY-MM-DD instead.
+ */
+function localDay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function todayLocal() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function write(arr) {
   localStorage.setItem(KEY, JSON.stringify(arr));
   window.dispatchEvent(new Event('cv:activity-changed'));
@@ -25,10 +51,10 @@ function write(arr) {
 export function recordSolve({ problemId, title, difficulty, tags = [], source = 'vault' }) {
   const all = read();
   // Idempotent for same calendar day + problemId — avoids spamming the streak.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const dup = all.find(a =>
     a.problemId === problemId &&
-    (a.solvedAt || '').slice(0, 10) === today
+    localDay(a.solvedAt) === today
   );
   if (dup) return dup;
   const entry = { problemId, title, difficulty, tags, source, solvedAt: new Date().toISOString() };
@@ -52,42 +78,43 @@ export function isSolved(problemId) {
  * calendar days (UTC) on which at least one solve happened.
  */
 export function getStreak() {
-  const days = new Set(read().map(a => (a.solvedAt || '').slice(0, 10)).filter(Boolean));
+  const days = new Set(read().map(a => localDay(a.solvedAt)).filter(Boolean));
   if (days.size === 0) return { current: 0, longest: 0, lastSolveDate: null };
 
   const sorted = [...days].sort();
   const lastSolveDate = sorted[sorted.length - 1];
 
-  // Longest run anywhere in history.
+  // Longest run anywhere in history. Use noon-local timestamps so DST
+  // boundaries don't trip up the day-difference math.
+  const toDate = (s) => new Date(s + 'T12:00:00');
   let longest = 1, run = 1;
   for (let i = 1; i < sorted.length; i++) {
-    const a = new Date(sorted[i - 1] + 'T00:00:00Z');
-    const b = new Date(sorted[i] + 'T00:00:00Z');
-    const diff = Math.round((b - a) / 86400000);
+    const diff = Math.round((toDate(sorted[i]) - toDate(sorted[i - 1])) / 86400000);
     run = diff === 1 ? run + 1 : 1;
     if (run > longest) longest = run;
   }
 
   // Current streak: walk back from today (or yesterday if today not yet solved).
-  const today = new Date().toISOString().slice(0, 10);
-  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const today = todayLocal();
+  const yestDate = new Date(); yestDate.setDate(yestDate.getDate() - 1);
+  const yest = localDay(yestDate.toISOString());
   let cursor = days.has(today) ? today : (days.has(yest) ? yest : null);
   let current = 0;
   while (cursor && days.has(cursor)) {
     current++;
-    const d = new Date(cursor + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() - 1);
-    cursor = d.toISOString().slice(0, 10);
+    const d = toDate(cursor);
+    d.setDate(d.getDate() - 1);
+    cursor = localDay(d.toISOString());
   }
 
   return { current, longest, lastSolveDate };
 }
 
-/** { 'YYYY-MM-DD': count } over all history. */
+/** { 'YYYY-MM-DD': count } over all history, keyed by the user's local day. */
 export function getDailyCounts() {
   const out = {};
   for (const a of read()) {
-    const d = (a.solvedAt || '').slice(0, 10);
+    const d = localDay(a.solvedAt);
     if (!d) continue;
     out[d] = (out[d] || 0) + 1;
   }

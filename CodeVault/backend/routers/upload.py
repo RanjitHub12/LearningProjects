@@ -178,6 +178,54 @@ def _norm_output(s: str) -> str:
     return "\n".join(line.rstrip() for line in (s or "").strip().splitlines()).strip()
 
 
+# ─── Analyze-only (no DB persist) ──────────────────────────────
+class AnalyzeRequest(BaseModel):
+    code: str
+    language: str = "cpp"
+    filename: str = ""
+
+
+class AnalyzeResponse(BaseModel):
+    title: str = ""
+    problem_statement: str = ""
+    difficulty: str = ""
+    dsa_tags: list[str] = []
+    generated_test_cases: list[dict] = []
+    extracted_approaches: list[dict] = []
+    deep_analysis: dict | None = None
+    error: str = ""
+
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_only(payload: AnalyzeRequest):
+    """
+    Run AI analysis on code without saving to the vault.
+    Used by the Folders page when the user creates a new code file —
+    we want the description / test cases / tags returned to localStorage,
+    not persisted as a VaultProblem.
+    """
+    if not payload.code.strip():
+        return AnalyzeResponse(error="Empty code")
+    try:
+        analysis = await analyze_code_file(
+            content=payload.code,
+            filename=payload.filename or f"snippet.{payload.language}",
+            language=payload.language,
+        )
+    except Exception as e:
+        return AnalyzeResponse(error=f"AI analysis failed: {e}")
+
+    return AnalyzeResponse(
+        title=analysis.get("title", "") or "",
+        problem_statement=analysis.get("problem_statement", "") or "",
+        difficulty=analysis.get("difficulty", "") or "",
+        dsa_tags=analysis.get("dsa_tags", []) or [],
+        generated_test_cases=analysis.get("generated_test_cases", []) or [],
+        extracted_approaches=analysis.get("extracted_approaches", []) or [],
+        deep_analysis=analysis.get("deep_analysis"),
+    )
+
+
 @router.post("/save-from-workspace", response_model=WorkspaceSaveResponse)
 async def save_from_workspace(
     payload: WorkspaceSaveRequest,

@@ -6,13 +6,15 @@ import {
   Play, RotateCcw, FileCode, Lightbulb, Clock, HardDrive,
   Brain, Layers, Zap, Copy, Check, ChevronUp, ChevronDown, Trash2, Eye,
   Maximize2, Minimize2, Save, X, AlertTriangle, CheckCircle2, XCircle, Loader2,
-  Folder, FolderPlus, ExternalLink, CalendarDays, BookmarkPlus
+  Folder, FolderPlus, ExternalLink, CalendarDays, BookmarkPlus, Terminal, ClipboardList, MoreHorizontal
 } from 'lucide-react';
 import { recordSolve, isSolved as activityIsSolved } from '../lib/activity';
 import {
   getFolders, createFolder, deleteFolder,
-  getSnippets, addSnippet, deleteSnippet,
+  getSnippets, addSnippet, deleteSnippet, renameSnippet,
 } from '../lib/folders';
+import { useToast } from '../components/Toast';
+import { Edit2 } from 'lucide-react';
 
 /* ═══ Layout ══════════════════════════════════════════════════ */
 const Page = styled.div`animation:fadeIn .4s ease;display:flex;flex-direction:column;height:calc(100vh - 64px);`;
@@ -143,8 +145,10 @@ const BOILER = {
 };
 
 export default function Workspace() {
+  const { toast, confirm } = useToast();
   const [params] = useSearchParams();
   const pid = params.get('id');
+  const snippetId = params.get('snippet');
   const isPractice = params.get('practice') === 'true';
   const [problem, setProblem] = useState(null);
   const [solutions, setSolutions] = useState([]);
@@ -153,10 +157,15 @@ export default function Workspace() {
   const [output, setOutput] = useState('');
   const [metrics, setMetrics] = useState(null);
   const [running, setRunning] = useState(false);
+  // stdin handed to /api/v1/execute. Programs reading via scanf/cin/input()
+  // get this string (newline-separated answers) as their standard input.
+  const [stdin, setStdin] = useState('');
+  const [stdinOpen, setStdinOpen] = useState(false);
   const [rTab, setRTab] = useState('problem');
   const [solIdx, setSolIdx] = useState(0);
   const [apIdx, setApIdx] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [outCopied, setOutCopied] = useState(false);
   const [conCollapsed, setConCollapsed] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   // Save-to-Vault pipeline
@@ -172,12 +181,20 @@ export default function Workspace() {
   const [snippets, setSnippets] = useState([]);
   const [activeFolderId, setActiveFolderId] = useState(null);
   const [newFolderName, setNewFolderName] = useState('');
-  const [snippetTitle, setSnippetTitle] = useState('');
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
   // LeetCode daily
   const [dailyOpen, setDailyOpen] = useState(false);
   const [dailyLoading, setDailyLoading] = useState(false);
   const [daily, setDaily] = useState(null);
   const [dailyError, setDailyError] = useState('');
+  // The boilerplate currently considered "untouched" — set whenever we
+  // seed the editor with LeetCode/local boilerplate so the Mark Solved
+  // gate can tell user-written code apart from the unchanged stub.
+  const [activeBoiler, setActiveBoiler] = useState('');
+  // "More" menu — keeps the toolbar uncluttered. Reset / Daily / Snippets /
+  // Save-to-Vault live in here so only Run / Mark Solved / Input stay visible.
+  const [moreOpen, setMoreOpen] = useState(false);
   // Practice mode timer — persists across tab switches and route navigations.
   // Stored as a wall-clock start timestamp in sessionStorage so leaving and
   // returning continues counting from the original start, not from zero.
@@ -210,6 +227,7 @@ export default function Workspace() {
   // Persist code to sessionStorage so navigating away (Dashboard, other tabs)
   // and back restores it. Keyed by problem id when available, else by language.
   const codeKey = pid ? `cv:code:${pid}:${lang}` : `cv:code:scratch:${lang}`;
+  const stdinKey = pid ? `cv:stdin:${pid}` : `cv:stdin:scratch`;
   useEffect(() => {
     const saved = sessionStorage.getItem(codeKey);
     if (saved !== null) setCode(saved);
@@ -217,6 +235,13 @@ export default function Workspace() {
   useEffect(() => {
     if (code !== undefined) sessionStorage.setItem(codeKey, code);
   }, [code, codeKey]);
+  useEffect(() => {
+    const saved = sessionStorage.getItem(stdinKey);
+    if (saved !== null) setStdin(saved);
+  }, [stdinKey]);
+  useEffect(() => {
+    sessionStorage.setItem(stdinKey, stdin);
+  }, [stdin, stdinKey]);
 
   useEffect(() => {
     if (!pid) return;
@@ -225,10 +250,51 @@ export default function Workspace() {
         setProblem(d);
         setSolutions(d.solutions||[]);
         // Only seed boilerplate when there's no persisted code for this problem+lang.
-        if (sessionStorage.getItem(codeKey) === null) setCode(BOILER[lang]||'');
+        if (sessionStorage.getItem(codeKey) === null) {
+          setCode(BOILER[lang]||'');
+          setActiveBoiler(BOILER[lang]||'');
+        }
       }
     });
   }, [pid]);
+
+  // Open a saved snippet from the Folders page (?snippet=ID): hydrate the
+  // editor + the Problem panel from its stored AI-generated metadata.
+  useEffect(() => {
+    if (!snippetId || pid) return;
+    import('../lib/folders').then(({ getSnippet }) => {
+      const s = getSnippet(snippetId);
+      if (!s) return;
+      setLang(s.language || 'cpp');
+      setCode(s.code || '');
+      setProblem({
+        id: `snippet:${s.id}`,
+        title: s.title || 'Snippet',
+        difficulty: s.difficulty || 'Medium',
+        problem_statement: s.description || '',
+        dsa_tags: s.tags || [],
+        generated_test_cases: s.testCases || [],
+      });
+      setSolutions([]);
+    });
+  }, [snippetId, pid]);
+
+  // True once the user has actually written something beyond whatever
+  // boilerplate is currently seeded. Compares against both the local
+  // language stub and any LeetCode-supplied snippet so an untouched daily
+  // editor still disables Mark Solved.
+  const hasUserCode = (() => {
+    const c = (code || '').trim();
+    if (!c) return false;
+    const norm = (s) => (s || '').replace(/\s+/g, '');
+    const stripped = norm(c);
+    const candidates = [
+      ...Object.values(BOILER).map(norm),
+      norm(activeBoiler),
+    ].filter(Boolean);
+    if (candidates.includes(stripped)) return false;
+    return true;
+  })();
 
   const sol = solutions[solIdx]||null;
   const approaches = sol?.extracted_approaches||[];
@@ -239,7 +305,7 @@ export default function Workspace() {
     setRunning(true);setOutput('');setMetrics(null);setConCollapsed(false);
     try {
       const r = await fetch('/api/v1/execute',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({code,language:lang,stdin:''})});
+        body:JSON.stringify({code,language:lang,stdin})});
       const d = await r.json();
       let o='';
       if(d.error) o+=`[ERROR] ${d.error}\n`;
@@ -271,6 +337,21 @@ export default function Workspace() {
       const d = await r.json();
       setSaveResult(d);
       setSaveStep('');
+
+      // Auto-record an activity entry when the save pipeline accepted the
+      // code. Counts the user's workspace work toward the dashboard /
+      // streak / contribution calendar without them having to also click
+      // Mark Solved separately.
+      if (d?.status === 'saved' && d.problem_id) {
+        recordSolve({
+          problemId: d.problem_id,
+          title: d.title,
+          difficulty: d.difficulty,
+          tags: d.dsa_tags || [],
+          source: 'vault',
+        });
+        setSolved(true);
+      }
     } catch (e) {
       setSaveResult({ status:'analysis_failed', message:`Network error: ${e.message}` });
       setSaveStep('');
@@ -335,13 +416,22 @@ export default function Workspace() {
 
   const handleSaveSnippet = () => {
     if (!activeFolderId || !code.trim()) return;
-    addSnippet({
-      folderId: activeFolderId,
-      title: snippetTitle || (problem?.title || 'Snippet'),
-      language: lang,
-      code,
-    });
-    setSnippetTitle('');
+    // Auto-name: prefer the loaded problem title, else a language-stamped
+    // default. The user can rename inline after the snippet appears.
+    const auto = problem?.title
+      || (window.__cvDaily?.title)
+      || `${lang.toUpperCase()} snippet · ${new Date().toLocaleString()}`;
+    const created = addSnippet({ folderId: activeFolderId, title: auto, language: lang, code });
+    refreshFolders();
+    if (created) {
+      toast({ kind:'success', title:'Snippet saved', message:`Saved to folder. Click the pencil icon to rename.` });
+    }
+  };
+
+  const startRename = (snip) => { setRenamingId(snip.id); setRenameValue(snip.title); };
+  const commitRename = () => {
+    if (renamingId && renameValue.trim()) renameSnippet(renamingId, renameValue.trim());
+    setRenamingId(null); setRenameValue('');
     refreshFolders();
   };
 
@@ -359,8 +449,81 @@ export default function Workspace() {
     }
   };
 
-  const loadAp=()=>{if(ap?.raw_code){setCode(ap.raw_code);}};
-  const copyCode=()=>{if(ap?.raw_code){navigator.clipboard.writeText(ap.raw_code);setCopied(true);setTimeout(()=>setCopied(false),1500);}};
+  // Apply a fetched LeetCode daily payload: pick the current language's
+  // boilerplate (falling back to cpp/python/java in order, then BOILER),
+  // populate the Problem panel with statement + tags + parsed test cases,
+  // and stash daily metadata so Mark Solved can record it.
+  const applyDailyToWorkspace = (d) => {
+    const langOrder = [lang, 'cpp', 'python', 'java'];
+    let chosenLang = lang;
+    let boiler = '';
+    for (const L of langOrder) {
+      if (d.snippets && d.snippets[L]) { chosenLang = L; boiler = d.snippets[L]; break; }
+    }
+    if (!boiler) boiler = BOILER[chosenLang] || '';
+    setLang(chosenLang);
+    setCode(boiler);
+    setActiveBoiler(boiler);
+    // Clear any stale persisted code for this language so the boilerplate
+    // we just loaded is the visible state until the user edits.
+    try { sessionStorage.setItem(`cv:code:scratch:${chosenLang}`, boiler); } catch {}
+    setProblem({
+      title: `${d.title} (LeetCode Daily)`,
+      difficulty: d.difficulty,
+      problem_statement: d.plainContent || '',
+      dsa_tags: d.tags || [],
+      generated_test_cases: (d.testCases || []).map(tc => ({
+        input: tc.input,
+        expected_output: tc.expected_output,
+        explanation: tc.explanation,
+      })),
+    });
+    setSolutions([]);
+    window.__cvDaily = { title: d.title, difficulty: d.difficulty, tags: d.tags, link: d.link };
+    setDailyOpen(false);
+    toast({ kind:'success', title:'Daily challenge loaded',
+      message:`Boilerplate, description, and ${(d.testCases||[]).length} example test case${(d.testCases||[]).length===1?'':'s'} are now in the workspace.` });
+  };
+
+  // Normalise the indentation of code we paste into the editor / clipboard.
+  // Saved approaches frequently come back with 8-space indent (or mixed
+  // tabs + spaces) which looks comically airy in Monaco at 14px. We:
+  //   1. expand tabs to 4 spaces consistently
+  //   2. detect the smallest non-zero leading-space count across all
+  //      non-blank lines, and if it's >= 4, divide every line's leading
+  //      spaces by that ratio down to 4 — i.e. 8 → 4, 4 → 4, 2 → 2.
+  //   3. trim trailing whitespace per line and the trailing blank lines.
+  const normaliseIndent = (src) => {
+    if (!src) return '';
+    const lines = src.replace(/\t/g, '    ').split(/\r?\n/);
+    let unit = Infinity;
+    for (const ln of lines) {
+      if (!ln.trim()) continue;
+      const m = ln.match(/^( +)/);
+      const lead = m ? m[1].length : 0;
+      if (lead > 0 && lead < unit) unit = lead;
+    }
+    if (!isFinite(unit) || unit <= 4) {
+      return lines.map(l => l.replace(/[ \t]+$/, '')).join('\n').replace(/\n{3,}$/, '\n').replace(/\s+$/, '\n');
+    }
+    // Compress: scale every leading-space block by (unit / 4)
+    const scale = unit / 4;
+    return lines.map(l => {
+      const m = l.match(/^( +)(.*)$/);
+      if (!m) return l.replace(/[ \t]+$/, '');
+      const newLead = ' '.repeat(Math.round(m[1].length / scale));
+      return (newLead + m[2]).replace(/[ \t]+$/, '');
+    }).join('\n').replace(/\s+$/, '\n');
+  };
+
+  const loadAp=()=>{
+    if(ap?.raw_code){
+      const cleaned = normaliseIndent(ap.raw_code);
+      setCode(cleaned);
+      setActiveBoiler(''); // loaded a real solution — no boilerplate to compare against
+    }
+  };
+  const copyCode=()=>{if(ap?.raw_code){navigator.clipboard.writeText(normaliseIndent(ap.raw_code));setCopied(true);setTimeout(()=>setCopied(false),1500);}};
 
   const cStatus = metrics?(metrics.passed?'pass':'fail'):(running?'running':'idle');
 
@@ -399,10 +562,12 @@ export default function Workspace() {
             {String(Math.floor(timer/60)).padStart(2,'0')}:{String(timer%60).padStart(2,'0')}
           </TimerBadge>
         )}
-        <select value={lang} onChange={e=>{setLang(e.target.value);setCode(BOILER[e.target.value]||'');}}>
+        <select value={lang} onChange={e=>{const nl=e.target.value;setLang(nl);setCode(BOILER[nl]||'');setActiveBoiler(BOILER[nl]||'');}}>
           <option value="cpp">C++</option><option value="python">Python</option><option value="java">Java</option>
         </select>
-        <button className="run-btn" onClick={runCode} disabled={running}><Play size={12}/> {running?'Running...':'Run'}</button>
+        <button className="run-btn" onClick={runCode} disabled={running} title={stdin.trim()?`Run with ${stdin.split(/\r?\n/).filter(Boolean).length} stdin line(s)`:'Run with empty stdin'}>
+          <Play size={12}/> {running?'Running...':'Run'}
+        </button>
         <button className="exit-btn" onClick={()=>setFullscreen(false)}><Minimize2 size={12}/> Exit</button>
       </FSToolbar>
       <div style={{flex:1,minHeight:0}}>
@@ -431,19 +596,71 @@ export default function Workspace() {
             {String(Math.floor(timer/60)).padStart(2,'0')}:{String(timer%60).padStart(2,'0')}
           </TimerBadge>
         )}
-        <Sel value={lang} onChange={e=>{setLang(e.target.value);setCode(BOILER[e.target.value]||'');}}>
+        <Sel value={lang} onChange={e=>{const nl=e.target.value;setLang(nl);setCode(BOILER[nl]||'');setActiveBoiler(BOILER[nl]||'');}}>
           <option value="cpp">C++</option><option value="python">Python</option><option value="java">Java</option>
         </Sel>
-        <Btn onClick={()=>setCode(BOILER[lang]||'')}><RotateCcw size={13}/> Reset</Btn>
-        <Btn onClick={loadDaily} title="Load today's LeetCode daily challenge"><CalendarDays size={13}/> Daily</Btn>
-        <Btn onClick={openFolders} title="Save this code to a folder or load a saved snippet"><Folder size={13}/> Snippets</Btn>
+        <Btn onClick={()=>setStdinOpen(o=>!o)} title="Provide standard input for the next Run"
+          style={stdinOpen?{background:'var(--cv-accent-muted)',color:'var(--cv-accent)',border:'1px solid var(--cv-border-hover)'}:undefined}>
+          <Terminal size={13}/> Input{stdin.trim()?` (${stdin.split(/\r?\n/).filter(Boolean).length})`:''}
+        </Btn>
         {(pid || (typeof window !== 'undefined' && window.__cvDaily)) && (
           solved
             ? <Btn style={{background:'rgba(63,185,80,.12)',color:'#3fb950',border:'1px solid rgba(63,185,80,.25)'}} disabled><CheckCircle2 size={13}/> Solved</Btn>
-            : <Btn onClick={markSolved} disabled={pid && !problem}><CheckCircle2 size={13}/> Mark Solved</Btn>
+            : <Btn onClick={markSolved} disabled={(pid && !problem) || !hasUserCode}
+                title={!hasUserCode ? 'Write your solution before marking solved' : 'Mark this problem as solved'}>
+                <CheckCircle2 size={13}/> Mark Solved
+              </Btn>
         )}
-        <Btn onClick={saveToVault} disabled={saving||!code.trim()} title="Analyze, test, and save this code to the CodeVault"><Save size={13}/> {saving?'Saving...':'Save to Vault'}</Btn>
         <Btn $primary onClick={runCode} disabled={running}><Play size={13}/> {running?'Running...':'Run'}</Btn>
+
+        {/* Overflow menu — keeps the toolbar from looking cramped.
+            Closes on outside-click via a backdrop, on item-pick via inline
+            handlers. */}
+        <div style={{ position:'relative' }}>
+          <Btn onClick={()=>setMoreOpen(o=>!o)} title="More actions"
+            style={moreOpen?{background:'var(--cv-accent-muted)',color:'var(--cv-accent)',border:'1px solid var(--cv-border-hover)'}:undefined}>
+            <MoreHorizontal size={14}/>
+          </Btn>
+          {moreOpen && (
+            <>
+              <div onClick={()=>setMoreOpen(false)}
+                style={{ position:'fixed', inset:0, zIndex: 50, background:'transparent' }}/>
+              <div style={{
+                position:'absolute', top:'calc(100% + 6px)', right: 0, zIndex: 60,
+                minWidth: 220, padding: 6, borderRadius: 10,
+                background: 'var(--cv-bg-secondary, #11151d)',
+                border: '1px solid var(--cv-border-default)',
+                boxShadow: '0 12px 36px rgba(0,0,0,.45)',
+              }}>
+                {[
+                  { icon: RotateCcw, label: 'Reset to boilerplate', onClick: ()=>{ setCode(BOILER[lang]||''); setActiveBoiler(BOILER[lang]||''); } },
+                  { icon: CalendarDays, label: "Load today's LeetCode daily", onClick: loadDaily },
+                  { icon: Folder, label: 'Snippets & folders', onClick: openFolders },
+                  { icon: Save, label: saving ? 'Saving to vault…' : 'Save to Vault (analyse + test)', onClick: saveToVault, disabled: saving || !code.trim() },
+                ].map((it, i) => {
+                  const Icon = it.icon;
+                  return (
+                    <button key={i}
+                      disabled={it.disabled}
+                      onClick={()=>{ setMoreOpen(false); it.onClick(); }}
+                      style={{
+                        display:'flex', alignItems:'center', gap:10, width:'100%', textAlign:'left',
+                        padding:'8px 12px', border:'none', background:'transparent', cursor: it.disabled ? 'not-allowed' : 'pointer',
+                        borderRadius: 7, color: it.disabled ? 'var(--cv-text-muted)' : 'var(--cv-text-secondary)',
+                        fontSize:'.82rem', fontFamily:'inherit', fontWeight: 500,
+                      }}
+                      onMouseEnter={e=>{ if(!it.disabled){ e.currentTarget.style.background='var(--cv-accent-muted)'; e.currentTarget.style.color='var(--cv-text-primary)'; } }}
+                      onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color = it.disabled ? 'var(--cv-text-muted)' : 'var(--cv-text-secondary)'; }}
+                    >
+                      <Icon size={14} style={{ color:'var(--cv-accent)', flexShrink: 0 }}/>
+                      <span style={{ flex:1 }}>{it.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </TopBar>
 
       <SplitH>
@@ -559,12 +776,87 @@ export default function Workspace() {
             </div>
           </EditorPane>
 
+          {stdinOpen && (
+            <Pane style={{ flexShrink: 0, minHeight: 160 }}>
+              {/* Two-row header so the title + helper text don't fight the
+                  Load-sample dropdown for horizontal space. */}
+              <div style={{ display:'flex', flexDirection:'column', gap:4,
+                padding:'10px 14px',
+                borderBottom:'1px solid var(--cv-border-subtle)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <Terminal size={14} style={{ color:'var(--cv-accent)' }}/>
+                  <span style={{ fontSize:'.78rem', fontWeight:700, color:'var(--cv-text-primary)', letterSpacing:'.02em' }}>
+                    Standard Input
+                  </span>
+                  <span style={{ flex:1 }}/>
+                  {(problem?.generated_test_cases?.length > 0) && (
+                    <select
+                      onChange={e=>{
+                        const i = parseInt(e.target.value, 10);
+                        const tc = problem.generated_test_cases[i];
+                        if (tc && typeof tc.input === 'string') setStdin(tc.input);
+                        e.target.value = '';
+                      }}
+                      defaultValue=""
+                      title="Load a static test case as stdin"
+                      style={{ padding:'5px 9px', borderRadius:7, border:'1px solid var(--cv-border-subtle)',
+                        background:'var(--cv-bg-tertiary)', color:'var(--cv-text-primary)',
+                        fontSize:'.74rem', fontFamily:'inherit', cursor:'pointer' }}
+                    >
+                      <option value="" disabled>Load sample…</option>
+                      {problem.generated_test_cases.map((tc, i) => (
+                        <option key={i} value={i}>Sample {i + 1}{tc.explanation ? ` — ${tc.explanation.slice(0, 38)}${tc.explanation.length > 38 ? '…' : ''}` : ''}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button onClick={()=>setStdin('')} title="Clear input"
+                    style={{ background:'var(--cv-bg-tertiary)', border:'1px solid var(--cv-border-subtle)', cursor:'pointer',
+                      color:'var(--cv-text-secondary)', padding:'5px 10px', display:'flex', alignItems:'center', gap:4,
+                      borderRadius:7, fontSize:'.72rem', fontFamily:'inherit' }}>
+                    <X size={11}/> Clear
+                  </button>
+                </div>
+                <span style={{ fontSize:'.72rem', color:'var(--cv-text-muted)', lineHeight:1.4, marginLeft:24 }}>
+                  Manual or static input — one value per line. Piped to scanf / cin / input() before your program runs.
+                </span>
+              </div>
+              <textarea
+                value={stdin}
+                onChange={e=>setStdin(e.target.value)}
+                placeholder={'5\n5\n1 2 3 4 5'}
+                spellCheck={false}
+                style={{
+                  width:'100%', minHeight: 110, maxHeight: 280, resize:'vertical',
+                  border:'none', outline:'none', display:'block',
+                  background:'#0d1117', color:'#c9d1d9',
+                  fontFamily:'var(--cv-font-mono)', fontSize:'.86rem', lineHeight:1.65,
+                  padding:'14px 18px',
+                }}
+              />
+            </Pane>
+          )}
+
           <ConsolePane $collapsed={conCollapsed}>
             <ConsoleHead $collapsed={conCollapsed} $c={cStatus} onClick={()=>setConCollapsed(!conCollapsed)}>
               <span className="dot"/>
               <span>{running?'Executing...':metrics?(metrics.passed?'Accepted':'Wrong Answer / Error'):'Console'}</span>
               <span className="spacer"/>
               {metrics&&<span style={{fontSize:'.68rem',color:metrics.passed?'#3fb950':'#f85149',marginRight:8}}>{metrics.execution_ms?.toFixed(1)}ms</span>}
+              {output && (
+                <button
+                  onClick={e=>{
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(output).then(()=>{
+                      setOutCopied(true);
+                      setTimeout(()=>setOutCopied(false), 1500);
+                    }).catch(()=>{});
+                  }}
+                  title="Copy entire console output"
+                  style={{ background:'none', border:'none', cursor:'pointer', color:'#8b949e', padding:'2px 6px', display:'flex', alignItems:'center', gap:4, borderRadius:5, fontSize:'.66rem', fontFamily:'inherit', marginRight:6 }}
+                >
+                  {outCopied ? <><Check size={11} style={{ color:'#3fb950' }}/> Copied</> : <><Copy size={11}/> Copy</>}
+                </button>
+              )}
               {conCollapsed?<ChevronUp size={14}/>:<ChevronDown size={14}/>}
             </ConsoleHead>
             {!conCollapsed&&(
@@ -715,7 +1007,11 @@ export default function Workspace() {
                       <span style={{flex:1,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{f.name}</span>
                       <span style={{fontSize:'.7rem',color:'var(--cv-text-muted)',fontFamily:'var(--cv-font-mono)'}}>{count}</span>
                       <button
-                        onClick={e=>{e.stopPropagation(); if(confirm(`Delete folder "${f.name}" and all its snippets?`)){ deleteFolder(f.id); if(activeFolderId===f.id) setActiveFolderId(null); refreshFolders();}}}
+                        onClick={async e=>{
+                          e.stopPropagation();
+                          const ok = await confirm({ title:'Delete folder?', message:`"${f.name}" and all its snippets will be permanently removed.`, danger:true, confirmLabel:'Delete' });
+                          if (ok) { deleteFolder(f.id); if(activeFolderId===f.id) setActiveFolderId(null); refreshFolders(); }
+                        }}
                         style={{background:'none',border:'none',cursor:'pointer',color:'var(--cv-text-muted)',padding:2,display:'flex'}}
                         title="Delete folder"
                       ><Trash2 size={12}/></button>
@@ -731,19 +1027,14 @@ export default function Workspace() {
                 ) : (
                   <>
                     {/* Save current code into the folder */}
-                    <div style={{padding:'10px 12px',background:'var(--cv-bg-tertiary)',border:'1px solid var(--cv-border-subtle)',borderRadius:9}}>
-                      <div style={{fontSize:'.72rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.05em',color:'var(--cv-text-muted)',marginBottom:7}}>Save current editor code here</div>
-                      <div style={{display:'flex',gap:6}}>
-                        <input
-                          value={snippetTitle}
-                          onChange={e=>setSnippetTitle(e.target.value)}
-                          placeholder={problem?.title || 'Snippet title…'}
-                          style={{flex:1,padding:'6px 9px',borderRadius:7,border:'1px solid var(--cv-border-subtle)',background:'var(--cv-bg-secondary,#11151d)',color:'var(--cv-text-primary)',fontSize:'.8rem',fontFamily:'inherit'}}
-                        />
-                        <Btn $primary onClick={handleSaveSnippet} disabled={!code.trim()}>
-                          <BookmarkPlus size={12}/> Save
-                        </Btn>
+                    <div style={{padding:'10px 12px',background:'var(--cv-bg-tertiary)',border:'1px solid var(--cv-border-subtle)',borderRadius:9,
+                      display:'flex',alignItems:'center',gap:10}}>
+                      <div style={{flex:1,fontSize:'.78rem',color:'var(--cv-text-secondary)'}}>
+                        Save the current editor code into this folder. The title is auto-generated — you can rename it after saving.
                       </div>
+                      <Btn $primary onClick={handleSaveSnippet} disabled={!code.trim()}>
+                        <BookmarkPlus size={12}/> Save Snippet
+                      </Btn>
                     </div>
 
                     {/* Snippets list */}
@@ -754,14 +1045,33 @@ export default function Workspace() {
                         <div key={s.id} style={{padding:'9px 11px',background:'var(--cv-bg-tertiary)',border:'1px solid var(--cv-border-subtle)',borderRadius:8,display:'flex',alignItems:'center',gap:10}}>
                           <FileCode size={13} style={{color:'var(--cv-accent)',flexShrink:0}}/>
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{fontSize:'.84rem',fontWeight:600,color:'var(--cv-text-primary)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div>
+                            {renamingId === s.id ? (
+                              <input
+                                autoFocus
+                                value={renameValue}
+                                onChange={e=>setRenameValue(e.target.value)}
+                                onBlur={commitRename}
+                                onKeyDown={e=>{ if(e.key==='Enter') commitRename(); if(e.key==='Escape'){ setRenamingId(null); setRenameValue(''); } }}
+                                style={{width:'100%',padding:'4px 7px',borderRadius:6,border:'1px solid var(--cv-accent)',background:'var(--cv-bg-secondary,#11151d)',color:'var(--cv-text-primary)',fontSize:'.84rem',fontFamily:'inherit',fontWeight:600}}
+                              />
+                            ) : (
+                              <div style={{fontSize:'.84rem',fontWeight:600,color:'var(--cv-text-primary)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{s.title}</div>
+                            )}
                             <div style={{fontSize:'.7rem',color:'var(--cv-text-muted)',fontFamily:'var(--cv-font-mono)'}}>{s.language} · {(s.savedAt||'').slice(0,10)}</div>
                           </div>
+                          <button
+                            onClick={()=>startRename(s)}
+                            style={{background:'none',border:'none',cursor:'pointer',color:'var(--cv-text-muted)',padding:4,display:'flex'}}
+                            title="Rename"
+                          ><Edit2 size={12}/></button>
                           <Btn style={{padding:'4px 9px',fontSize:'.7rem'}} onClick={()=>{ setLang(s.language); setCode(s.code); setFoldersOpen(false); }}>
                             <Play size={11}/> Load
                           </Btn>
                           <button
-                            onClick={()=>{ if(confirm(`Delete snippet "${s.title}"?`)){ deleteSnippet(s.id); refreshFolders();}}}
+                            onClick={async ()=>{
+                              const ok = await confirm({ title:'Delete snippet?', message:`"${s.title}" will be permanently removed.`, danger:true, confirmLabel:'Delete' });
+                              if (ok) { deleteSnippet(s.id); refreshFolders(); }
+                            }}
                             style={{background:'none',border:'none',cursor:'pointer',color:'var(--cv-text-muted)',padding:4,display:'flex'}}
                             title="Delete"
                           ><Trash2 size={12}/></button>
@@ -801,12 +1111,11 @@ export default function Workspace() {
                     fontSize:'.85rem',color:'var(--cv-text-secondary)',lineHeight:1.6,maxHeight:280,overflowY:'auto'}}
                     dangerouslySetInnerHTML={{__html: daily.content}}
                   />
-                  <Banner $kind="warn" style={{marginTop:12}}>
-                    <AlertTriangle/>
-                    <div className="msg">
-                      Solving here records to <strong>your CodeVault streak</strong>. To also update your <strong>LeetCode</strong> streak, click "Submit on LeetCode" — your code will open on leetcode.com where you can submit it under your account.
+                  {(daily.testCases?.length > 0) && (
+                    <div style={{marginTop:10,fontSize:'.78rem',color:'var(--cv-text-muted)'}}>
+                      Loading will populate the editor with LeetCode's official boilerplate plus {daily.testCases.length} parsed example test case{daily.testCases.length===1?'':'s'}.
                     </div>
-                  </Banner>
+                  )}
                 </>
               )}
             </MBody>
@@ -814,13 +1123,7 @@ export default function Workspace() {
               <Btn onClick={()=>setDailyOpen(false)}>Close</Btn>
               {daily && (
                 <>
-                  <Btn onClick={()=>{
-                    setLang('cpp'); setCode(BOILER.cpp);
-                    setDailyOpen(false);
-                    // Record a "loaded" entry only when user marks it solved later.
-                    // Stash daily metadata on the page title so Mark Solved gets context.
-                    window.__cvDaily = { title: daily.title, difficulty: daily.difficulty, tags: daily.tags, link: daily.link };
-                  }}><FileCode size={13}/> Load Boilerplate</Btn>
+                  <Btn onClick={()=>applyDailyToWorkspace(daily)}><FileCode size={13}/> Load Boilerplate</Btn>
                   <Btn $primary onClick={()=>window.open(daily.link, '_blank', 'noopener')}>
                     <ExternalLink size={13}/> Submit on LeetCode
                   </Btn>

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { ThemeContextProvider } from './context/ThemeContext';
 import { theme, GlobalStyles } from './theme/GlobalStyles';
+import { ToastProvider } from './components/Toast';
 import App from './App';
 import './index.css';
 
@@ -13,7 +14,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ThemeContextProvider>
         <ThemeProvider theme={theme}>
           <GlobalStyles />
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </ThemeProvider>
       </ThemeContextProvider>
     </BrowserRouter>

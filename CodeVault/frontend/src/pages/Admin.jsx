@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Settings, Trash2, Edit3, Save, X, RefreshCw } from 'lucide-react';
+import { Settings, Trash2, Edit3, Save, X, RefreshCw, Eraser, Database } from 'lucide-react';
+import { useToast } from '../components/Toast';
+import PageHeader from '../components/PageHeader';
 
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
-const Header = styled.header`margin-bottom: 28px;
-  display: flex; align-items: flex-end; justify-content: space-between;
-  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 4px; }
-  p { color: var(--cv-text-secondary); font-size: 0.9rem; }`;
 
 const DangerBtn = styled.button`
   padding: 9px 18px; border-radius: 8px; border: none; cursor: pointer;
@@ -53,6 +51,7 @@ const Empty = styled.div`
   p { color: var(--cv-text-muted); font-size: 0.85rem; }`;
 
 export default function Admin() {
+  const { confirm, toast } = useToast();
   const [problems, setProblems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
@@ -78,30 +77,88 @@ export default function Admin() {
   };
 
   const deleteProblem = async (id) => {
-    if (!confirm('Delete this problem and all solutions?')) return;
+    const ok = await confirm({ title:'Delete problem?', message:'This problem and all its solutions will be permanently removed.', danger:true, confirmLabel:'Delete' });
+    if (!ok) return;
     await fetch(`/api/v1/problems/${id}`, { method: 'DELETE' });
     load();
+    toast({ kind:'success', title:'Deleted', message:'Problem removed from the vault.' });
   };
 
   const purgeAll = async () => {
-    if (!confirm('NUCLEAR OPTION: Delete ALL problems? This cannot be undone.')) return;
+    const ok = await confirm({ title:'Purge ALL problems?', message:'This will delete every problem and solution in the vault. This cannot be undone.', danger:true, confirmLabel:'Purge everything' });
+    if (!ok) return;
     for (const p of problems) {
       await fetch(`/api/v1/problems/${p.id}`, { method: 'DELETE' });
     }
     load();
+    toast({ kind:'success', title:'Vault purged', message:`${problems.length} problem${problems.length===1?'':'s'} removed.` });
+  };
+
+  // Hard reset: server-side TRUNCATE of every vault data table. Faster
+  // than iterating DELETE per problem and also clears solutions / practice
+  // attempts the iterative purge above can't reach individually.
+  const wipeServer = async () => {
+    const ok = await confirm({
+      title: 'Wipe server database?',
+      message: 'Truncates every problem, solution, and practice attempt. The Postgres tables are reset to empty. Cannot be undone.',
+      danger: true, confirmLabel: 'Wipe database',
+    });
+    if (!ok) return;
+    try {
+      const r = await fetch('/api/v1/admin/wipe-all', { method: 'POST' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      load();
+      toast({ kind:'success', title:'Database wiped', message:'All vault data removed from Postgres.' });
+    } catch (e) {
+      toast({ kind:'error', title:'Wipe failed', message: e.message });
+    }
+  };
+
+  // Frontend-only reset: clears the per-browser localStorage that backs
+  // activity, folders, snippets, and the in-flight editor sessionStorage.
+  const wipeLocal = async () => {
+    const ok = await confirm({
+      title: 'Clear local browser data?',
+      message: 'Removes saved activity (streak, solves), folders, snippets, and unsaved editor sessions stored in this browser. The server is untouched.',
+      danger: true, confirmLabel: 'Clear local data',
+    });
+    if (!ok) return;
+    const localKeys = ['cv:activity', 'cv:folders', 'cv:snippets'];
+    localKeys.forEach(k => localStorage.removeItem(k));
+    // Sweep any cv:* keys (e.g. legacy entries) and all sessionStorage
+    // editor caches (cv:code:*, cv:practice:*).
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('cv:')) localStorage.removeItem(k);
+    }
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k && k.startsWith('cv:')) sessionStorage.removeItem(k);
+    }
+    window.dispatchEvent(new Event('cv:activity-changed'));
+    window.dispatchEvent(new Event('cv:folders-changed'));
+    toast({ kind:'success', title:'Local data cleared', message:'Reload other tabs to see the change.' });
   };
 
   return (
     <Page>
-      <Header>
-        <div><h1>Admin Control</h1><p>Manage, override, and purge vault data.</p></div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <IconBtn onClick={load} title="Refresh"><RefreshCw size={16} /></IconBtn>
-          <DangerBtn onClick={purgeAll} disabled={!problems.length}>
-            <Trash2 size={14} /> Mass Purge
-          </DangerBtn>
-        </div>
-      </Header>
+      <PageHeader
+        eyebrow="Operations"
+        title="Admin"
+        accent="control."
+        subtitle="Manage, override, and purge vault data. Destructive actions cannot be undone."
+      >
+        <IconBtn onClick={load} title="Refresh"><RefreshCw size={16} /></IconBtn>
+        <DangerBtn onClick={wipeLocal} title="Clear localStorage and sessionStorage in this browser">
+          <Eraser size={14} /> Clear Local Data
+        </DangerBtn>
+        <DangerBtn onClick={wipeServer} title="TRUNCATE every vault table on the server">
+          <Database size={14} /> Wipe Database
+        </DangerBtn>
+        <DangerBtn onClick={purgeAll} disabled={!problems.length}>
+          <Trash2 size={14} /> Mass Purge
+        </DangerBtn>
+      </PageHeader>
 
       {loading ? (
         <Empty><Settings /><h2>Loading...</h2></Empty>

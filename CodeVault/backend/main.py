@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import get_settings
 from database import init_db, dispose_db
 from routers import health, problems
-from routers import upload, execution, leetcode
+from routers import upload, execution, leetcode, admin
 
 settings = get_settings()
 
@@ -55,3 +55,4 @@ app.include_router(problems.router)
 app.include_router(upload.router)
 app.include_router(execution.router)
 app.include_router(leetcode.router)
+app.include_router(admin.router)
