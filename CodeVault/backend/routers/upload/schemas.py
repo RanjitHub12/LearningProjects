@@ -25,6 +25,10 @@ class UploadResponse(BaseModel):
     has_deep_analysis: bool
     problem_statement: str = ""
     message: str
+    # Which engine produced the analysis. "groq" / "gemini" = real AI;
+    # "groq-minimal" = AI but slimmer fallback (no deep analysis); "heuristic"
+    # = no AI ran at all (keys missing / both providers failed).
+    engine: str = ""
 
 
 class WorkspaceSaveRequest(BaseModel):

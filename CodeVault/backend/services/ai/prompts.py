@@ -6,7 +6,7 @@ Kept in their own module so prompt edits don't churn the analyzer/runner code.
 EXTRACTION_PROMPT = """You are an expert DSA code analyzer for CodeVault (reverse-LeetCode platform). Analyze the given code file and return ONLY valid JSON matching this schema:
 
 {
-  "title": "<actual algorithmic problem name, NOT filename>",
+  "title": "<the canonical algorithmic problem name (e.g. 'Two Sum', 'Longest Palindromic Substring'). The filename is a strong hint — most uploads are named after the LeetCode/HackerRank problem they solve (e.g. 'two-sum.cpp' → 'Two Sum', 'longest-palindromic-substring.py' → 'Longest Palindromic Substring'). Convert kebab-case / snake_case filenames to Title Case. Only override the filename when the code clearly solves a different problem than the filename suggests.>",
   "problem_statement": "<markdown: 2-3 paragraph description, input/output, constraints, 2-3 examples>",
   "difficulty": "Easy|Medium|Hard|Impossible",
   "dsa_tags": ["<from: Array,String,DP,Tree,Graph,Stack,Queue,Linked List,Binary Search,Hash Map,Heap,Greedy,Recursion,Backtracking,Sorting,Two Pointers,Sliding Window,Bit Manipulation,Math,Trie,Union Find,Design>"],

@@ -33,6 +33,7 @@ async def upload_single_file(
     extracted = analysis.get("extracted_approaches", [])
     deep = analysis.get("deep_analysis", None)
     approach_names = [a.get("approach_name", f"Approach {i+1}") for i, a in enumerate(extracted)]
+    engine = analysis.get("_engine", "")
 
     # Dedup by exact title match — if the same problem already exists, append
     # this upload as another solution rather than creating a duplicate problem.
@@ -62,6 +63,7 @@ async def upload_single_file(
             has_deep_analysis=deep is not None,
             problem_statement=existing_problem.problem_statement or "",
             message="Added as new solution to existing problem",
+            engine=engine,
         )
 
     problem = VaultProblem(
@@ -95,4 +97,5 @@ async def upload_single_file(
         has_deep_analysis=deep is not None,
         problem_statement=problem.problem_statement or "",
         message="Problem created and solution stored successfully",
+        engine=engine,
     )
