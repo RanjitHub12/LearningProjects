@@ -11,6 +11,8 @@ import time
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from services.ai import generate_runner, has_main
+
 router = APIRouter(prefix="/api/v1", tags=["Execution"])
 
 
@@ -19,6 +21,9 @@ class ExecutionRequest(BaseModel):
     language: str = "cpp"
     stdin: str = ""
     timeout_seconds: int = 10
+    # Optional: if provided and the code lacks a main/entry-point, the AI
+    # auto-wraps the code with a stdin-driven runner before compilation.
+    test_cases: list = []
 
 
 class ExecutionMetrics(BaseModel):
@@ -33,6 +38,8 @@ class ExecutionResponse(BaseModel):
     error: str = ""
     exit_code: int = -1
     metrics: ExecutionMetrics = ExecutionMetrics()
+    executable_code: str = ""
+    runner_added: bool = False
 
 
 COMPILE_CMD = {
@@ -57,6 +64,17 @@ async def execute_code(req: ExecutionRequest):
     if lang not in FILE_EXT:
         return ExecutionResponse(error=f"Unsupported language: {lang}")
 
+    # Auto-wrap function-only LeetCode-style code when test cases give us
+    # enough context to infer the stdin format. Skips if a main is already
+    # present or no test cases were supplied.
+    runnable_code = req.code
+    runner_added = False
+    if req.test_cases and not has_main(req.code, lang):
+        wrapped = await generate_runner(req.code, lang, req.test_cases)
+        if wrapped:
+            runnable_code = wrapped
+            runner_added = True
+
     with tempfile.TemporaryDirectory() as tmpdir:
         ext = FILE_EXT[lang]
         src_name = "Solution" + ext if lang == "java" else "solution" + ext
@@ -65,7 +83,7 @@ async def execute_code(req: ExecutionRequest):
 
         # Write source file
         with open(src_path, "w") as f:
-            f.write(req.code)
+            f.write(runnable_code)
 
         # Compile if needed
         if lang in COMPILE_CMD:
@@ -83,6 +101,8 @@ async def execute_code(req: ExecutionRequest):
                         stderr=stderr.decode(errors="replace"),
                         error="Compilation failed",
                         exit_code=proc.returncode,
+                        executable_code=runnable_code if runner_added else "",
+                        runner_added=runner_added,
                     )
             except asyncio.TimeoutError:
                 return ExecutionResponse(error="Compilation timed out")
@@ -125,6 +145,8 @@ async def execute_code(req: ExecutionRequest):
                     memory_kb=0,
                     passed=proc.returncode == 0,
                 ),
+                executable_code=runnable_code if runner_added else "",
+                runner_added=runner_added,
             )
         except asyncio.TimeoutError:
             return ExecutionResponse(error=f"Execution timed out after {req.timeout_seconds}s")

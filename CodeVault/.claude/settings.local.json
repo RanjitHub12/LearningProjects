@@ -12,7 +12,32 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Skill(update-config)"
+      "Skill(update-config)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('routers/leetcode.py'\\).read\\(\\)\\); ast.parse\\(open\\('routers/upload.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const files=['src/components/Toast.jsx','src/pages/Folders.jsx','src/pages/Workspace.jsx','src/pages/Analytics.jsx','src/components/Dashboard.jsx','src/pages/Admin.jsx','src/lib/folders.js','src/main.jsx','src/App.jsx','src/components/Layout.jsx']; files.forEach\\(f=>{ try { require\\('@babel/parser'\\).parse\\(fs.readFileSync\\(f,'utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK',f\\); } catch\\(e\\){ console.error\\('FAIL',f,e.message\\);} }\\);\")",
+      "Bash(node -e \"require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\('src/pages/Folders.jsx','utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\('src/components/Dashboard.jsx','utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); ['src/components/PageHeader.jsx','src/pages/Practice.jsx','src/pages/ProblemVault.jsx','src/pages/Upload.jsx','src/pages/Analytics.jsx','src/pages/Folders.jsx','src/pages/Admin.jsx'].forEach\\(f=>{ try { require\\('@babel/parser'\\).parse\\(fs.readFileSync\\(f,'utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK',f\\); } catch\\(e\\){ console.error\\('FAIL',f,e.message\\);} }\\);\")",
+      "Bash(node -e \"require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\('src/pages/Workspace.jsx','utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK'\\)\")",
+      "Bash(node -e \"['src/pages/Workspace.jsx','src/pages/Folders.jsx','src/pages/Analytics.jsx','src/lib/folders.js','src/lib/activity.js'].forEach\\(f=>{ try { require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\(f,'utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK',f\\); } catch\\(e\\){ console.error\\('FAIL',f,e.message\\);} }\\);\")",
+      "Bash(node -e \"['src/App.jsx','src/components/Layout.jsx','src/components/Dashboard.jsx','src/pages/Analytics.jsx','src/pages/Folders.jsx'].forEach\\(f=>{ try { require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\(f,'utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK',f\\); } catch\\(e\\){ console.error\\('FAIL',f,e.message\\);} }\\);\")",
+      "Bash(node -e \"['src/pages/Upload.jsx','src/pages/Folders.jsx','src/App.jsx','src/components/Layout.jsx'].forEach\\(f=>{ try { require\\('@babel/parser'\\).parse\\(require\\('fs'\\).readFileSync\\(f,'utf8'\\),{sourceType:'module',plugins:['jsx']}\\); console.log\\('OK',f\\); } catch\\(e\\){ console.error\\('FAIL',f,e.message\\);} }\\);\")",
+      "Bash(python -c \"from services.gemini_service import generate_runner, _has_main; print\\('ok', _has_main\\('int main\\(\\){}', 'cpp'\\), _has_main\\('def f\\(\\):\\\\n  pass', 'python'\\)\\)\")",
+      "Bash(xargs wc *)",
+      "Bash(python -c \"from services.ai import analyze_code_file, generate_runner, has_main; from services.gemini_service import analyze_code_file as a2, _has_main; print\\('ok'\\); print\\('has_main cpp:', has_main\\('int main\\(\\){}', 'cpp'\\)\\); print\\('has_main py:', has_main\\('def f\\(\\):\\\\n  pass', 'python'\\)\\)\")",
+      "Bash(rm routers/upload.py)",
+      "Bash(python -c \"from routers import upload; print\\('routes:', [r.path for r in upload.router.routes]\\)\")",
+      "Bash(python -m py_compile routers/upload/__init__.py routers/upload/single.py routers/upload/workspace.py routers/upload/analyze.py routers/upload/schemas.py routers/upload/_helpers.py services/ai/__init__.py services/ai/analyzer.py services/ai/runner.py services/ai/heuristic.py services/ai/clients.py services/ai/prompts.py services/gemini_service.py main.py)",
+      "Bash(python -m pyflakes routers/ services/ models.py main.py config.py database.py schemas.py)",
+      "Bash(pip install *)",
+      "Bash(cp /tmp/scan3.mjs /tmp/scan4.mjs)",
+      "Bash(sed -i \"s|@babel/parser|$\\(pwd\\)/node_modules/@babel/parser/lib/index.js|\" /tmp/scan4.mjs)",
+      "Bash(node /tmp/scan4.mjs)",
+      "Bash(node -e ' *)",
+      "Bash(node .scan_unused.cjs)",
+      "Bash(python -m pyflakes .)",
+      "Bash(npx vite *)",
+      "Bash(git *)"
     ]
   }
 }
