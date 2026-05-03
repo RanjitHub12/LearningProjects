@@ -29,13 +29,45 @@ async def save_from_workspace(
     payload: WorkspaceSaveRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    # ── 0. Build a context block from any loaded LeetCode/vault problem ─
+    # When the workspace already shows problem metadata we fold it into the
+    # AI prompt as authoritative context so the analyzer doesn't have to
+    # re-derive everything from a bare function. Combined with any explicit
+    # user hint, this dramatically improves results for LeetCode flows.
+    auto_context_parts: list[str] = []
+    if payload.context_title:
+        auto_context_parts.append(f"Problem title: {payload.context_title}")
+    if payload.context_difficulty:
+        auto_context_parts.append(f"Difficulty: {payload.context_difficulty}")
+    if payload.context_tags:
+        auto_context_parts.append("Tags: " + ", ".join(payload.context_tags))
+    if payload.context_statement:
+        # Trim very long statements so the prompt stays inside the model
+        # context window (LC HTML-stripped content can be huge).
+        stmt = payload.context_statement.strip()
+        if len(stmt) > 3500:
+            stmt = stmt[:3500] + "…"
+        auto_context_parts.append(f"Problem statement:\n{stmt}")
+    if payload.context_test_cases:
+        sample_lines = []
+        for i, tc in enumerate(payload.context_test_cases[:4], 1):
+            sample_lines.append(
+                f"Example {i}:\n  Input: {tc.get('input','')}\n  "
+                f"Expected output: {tc.get('expected_output','')}"
+            )
+        auto_context_parts.append("Sample test cases:\n" + "\n".join(sample_lines))
+    auto_context = "\n\n".join(auto_context_parts)
+    combined_hint = (payload.hint or "")
+    if auto_context:
+        combined_hint = (auto_context + ("\n\nUser hint: " + payload.hint if payload.hint else "")).strip()
+
     # ── 1. Analyze ─────────────────────────────────────────────
     try:
         analysis = await analyze_code_file(
             content=payload.code,
             filename=f"workspace.{payload.language}",
             language=payload.language,
-            hint=payload.hint,
+            hint=combined_hint,
         )
     except Exception as e:
         return WorkspaceSaveResponse(
@@ -43,8 +75,21 @@ async def save_from_workspace(
             message=f"AI analysis failed: {e}",
         )
 
+    # If the workspace passed in a title we trust it over the AI's guess —
+    # the user explicitly chose this problem, the AI shouldn't rename it.
+    if payload.context_title:
+        analysis["title"] = payload.context_title
+    if payload.context_statement and not (analysis.get("problem_statement") or "").strip():
+        analysis["problem_statement"] = payload.context_statement
+    if payload.context_difficulty and not (analysis.get("difficulty") or "").strip():
+        analysis["difficulty"] = payload.context_difficulty
+    if payload.context_tags and not analysis.get("dsa_tags"):
+        analysis["dsa_tags"] = payload.context_tags
+
     title = (analysis.get("title") or "").strip()
-    test_cases = analysis.get("generated_test_cases") or []
+    # Prefer LC/vault sample test cases over AI-generated ones — they are
+    # ground truth from leetcode.com or a previously saved problem.
+    test_cases = payload.context_test_cases or analysis.get("generated_test_cases") or []
     extracted = analysis.get("extracted_approaches") or []
     deep = analysis.get("deep_analysis")
     approach_names = [a.get("approach_name", f"Approach {i+1}") for i, a in enumerate(extracted)]

@@ -297,9 +297,28 @@ export default function Workspace() {
         setTimeout(()=>setSaveStep('dedup'), 3500),
         setTimeout(()=>setSaveStep('save'), 4500),
       ];
+      // Forward whatever metadata the workspace already knows about — for
+      // a LeetCode daily or a vault problem, this gives the AI the title +
+      // statement + sample test cases so it doesn't have to re-derive them
+      // from a bare function. The backend trusts these over its own guesses.
+      const ctxTests = (problem?.generated_test_cases || []).map(tc => ({
+        input: typeof tc.input === 'string' ? tc.input : String(tc.input ?? ''),
+        expected_output: typeof tc.expected_output === 'string'
+          ? tc.expected_output : String(tc.expected_output ?? ''),
+      }));
+      // Strip the "(LeetCode Daily)" suffix we add for display so the saved
+      // title matches the canonical problem name.
+      const ctxTitle = (problem?.title || '').replace(/\s*\(LeetCode Daily\)\s*$/i, '').trim();
       const r = await fetch('/api/v1/upload/save-from-workspace', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ code, language: lang, hint }),
+        body: JSON.stringify({
+          code, language: lang, hint,
+          context_title: ctxTitle,
+          context_statement: problem?.problem_statement || '',
+          context_tags: problem?.dsa_tags || [],
+          context_difficulty: problem?.difficulty || '',
+          context_test_cases: ctxTests,
+        }),
       });
       stepTimers.forEach(clearTimeout);
       const d = await r.json();

@@ -33,6 +33,14 @@ class WorkspaceSaveRequest(BaseModel):
     # Optional human hint when the AI couldn't infer the problem on its own
     # (e.g. "This is the Two Sum problem — find two indices summing to target").
     hint: str = ""
+    # Optional context auto-populated from a loaded problem (LeetCode daily or
+    # vault problem). When present these are folded into the AI prompt and
+    # `test_cases` are preferred over AI-generated ones for the test phase.
+    context_title: str = ""
+    context_statement: str = ""
+    context_tags: list[str] = []
+    context_difficulty: str = ""
+    context_test_cases: list[dict] = []
 
 
 class TestRunResult(BaseModel):
