@@ -42,6 +42,45 @@ export const renderConsole = (text) => {
   });
 };
 
+/**
+ * Render typed console output. `segments` is an array of `{kind, text}` where
+ * kind ∈ {'out','err','in','sys'}. Each segment is split into its constituent
+ * lines and tagged with a CSS class so user input ('in') can be styled apart
+ * from program stdout, stderr, and system notices.
+ *
+ * Falls back to the legacy single-string `renderConsole` when given a string,
+ * so callers that haven't migrated still work.
+ */
+export const renderOutputSegments = (segments, opts = {}) => {
+  if (opts.spinner) return [{ key: 'spinner', cls: 'dim', text: '⏳ Compiling and executing...' }];
+  if (typeof segments === 'string') return renderConsole(segments);
+  if (!segments || segments.length === 0) {
+    return [{ key: 'empty', cls: 'dim', text: 'Run your code to see output...' }];
+  }
+  const cls = (kind, line) => {
+    if (kind === 'in') return 'in';
+    if (kind === 'err') return 'err';
+    if (kind === 'sys') return 'info';
+    if (line.startsWith('[ERROR]')) return 'err';
+    if (/error|Error|fatal/.test(line)) return 'err';
+    if (/warning|Warning/.test(line)) return 'warn';
+    if (/note:|info:/i.test(line)) return 'info';
+    return '';
+  };
+  const out = [];
+  segments.forEach((seg, si) => {
+    const text = seg.text ?? '';
+    // Split keeping a trailing empty so a chunk ending in \n still produces
+    // a final blank line. Drop only the synthetic last empty.
+    const parts = text.split('\n');
+    if (parts.length > 1 && parts[parts.length - 1] === '') parts.pop();
+    parts.forEach((line, li) => {
+      out.push({ key: `${si}-${li}`, cls: cls(seg.kind, line), text: line });
+    });
+  });
+  return out.length ? out : [{ key: 'empty', cls: 'dim', text: 'Run your code to see output...' }];
+};
+
 /** Bare-bones markdown renderer (h1, h2, list, bold, paragraph). */
 export const renderMarkdown = (text) => {
   if (!text) return [];

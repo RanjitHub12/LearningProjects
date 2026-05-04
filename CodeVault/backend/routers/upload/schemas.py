@@ -45,18 +45,15 @@ class WorkspaceSaveRequest(BaseModel):
     context_tags: list[str] = []
     context_difficulty: str = ""
     context_test_cases: list[dict] = []
-
-
-class TestRunResult(BaseModel):
-    input: str
-    expected_output: str
-    actual_output: str = ""
-    passed: bool = False
-    error: str = ""
+    # When true, skip the AI step entirely and persist using only the
+    # context_* fields above as the user-supplied metadata. Used by the
+    # Workspace's manual-entry form so the user can save without burning
+    # AI quota or waiting for a rate-limited model.
+    manual: bool = False
 
 
 class WorkspaceSaveResponse(BaseModel):
-    # status one of: saved | tests_failed | duplicate | no_tests | analysis_failed
+    # status one of: saved | duplicate | analysis_failed
     status: str
     message: str
     title: str = ""
@@ -65,16 +62,14 @@ class WorkspaceSaveResponse(BaseModel):
     problem_statement: str = ""
     approaches_found: int = 0
     approach_names: list[str] = []
-    test_results: list[TestRunResult] = []
-    tests_passed: int = 0
-    tests_total: int = 0
     problem_id: str = ""
     duplicate_of_id: str = ""
     duplicate_of_title: str = ""
-    # AI-wrapped version when the user's code lacked a main; populated only when
-    # the runner step actually fired.
-    executable_code: str = ""
-    runner_added: bool = False
+    # Which engine produced the analysis. "groq" / "groq-minimal" / "gemini"
+    # are real AI; "heuristic" means both AI providers were unavailable;
+    # "manual" means the user filled the form themselves. The frontend uses
+    # this to nudge the user toward manual entry when AI quality is poor.
+    engine: str = ""
 
 
 class AnalyzeRequest(BaseModel):

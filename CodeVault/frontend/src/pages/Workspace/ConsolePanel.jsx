@@ -3,7 +3,7 @@ import {
   ChevronUp, ChevronDown, Copy, Check, Clock, HardDrive, Send, Square,
 } from 'lucide-react';
 import { ConsolePane, ConsoleHead, ConBody, MetRow, StdinBar } from './styles';
-import { renderConsole } from './utils';
+import { renderOutputSegments } from './utils';
 
 export default function ConsolePanel({
   output, running, metrics, conCollapsed, setConCollapsed,
@@ -11,8 +11,9 @@ export default function ConsolePanel({
   interactive, onSendLine, onKill,
 }) {
   const cStatus = metrics ? (metrics.passed ? 'pass' : 'fail') : (running ? 'running' : 'idle');
-  const showSpinner = running && !interactive && !output;
-  const lines = renderConsole(showSpinner ? '⏳ Compiling and executing...' : output);
+  const hasContent = Array.isArray(output) ? output.length > 0 : !!output;
+  const showSpinner = running && !interactive && !hasContent;
+  const lines = renderOutputSegments(output, { spinner: showSpinner });
 
   const [line, setLine] = useState('');
   const inputRef = useRef(null);
@@ -42,7 +43,7 @@ export default function ConsolePanel({
             {metrics.execution_ms?.toFixed(1)}ms
           </span>
         )}
-        {output && (
+        {hasContent && (
           <button
             onClick={e=>{ e.stopPropagation(); copyOutput(); }}
             title="Copy entire console output"
@@ -57,7 +58,12 @@ export default function ConsolePanel({
       {!conCollapsed && (
         <>
           <ConBody ref={bodyRef}>
-            {lines.map(l => <div key={l.key} className={l.cls || undefined}>{l.text}</div>)}
+            {lines.map(l => (
+              <div key={l.key} className={l.cls || undefined}>
+                {l.cls === 'in' && <span className="prompt">› </span>}
+                {l.text || ' '}
+              </div>
+            ))}
           </ConBody>
           {interactive && (
             <StdinBar onSubmit={submitLine}>

@@ -2,7 +2,7 @@
 export const LANG = { cpp: 'cpp', python: 'python', java: 'java' };
 
 // Order the Save-to-Vault pipeline animates through.
-export const STEP_ORDER = ['analyze', 'test', 'dedup', 'save'];
+export const STEP_ORDER = ['analyze', 'dedup', 'save'];
 
 // Language boilerplates seeded into a fresh editor.
 export const BOILER = {

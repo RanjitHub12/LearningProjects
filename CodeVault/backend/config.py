@@ -3,8 +3,16 @@ CodeVault Configuration — Pydantic Settings
 All values are loaded from environment variables or .env file.
 """
 
+from pathlib import Path
+
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+
+# Resolve the project-root .env regardless of where the process was launched
+# from. Pydantic's default `env_file: ".env"` is evaluated against the CWD,
+# which silently misses values when uvicorn is started from `backend/`.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+_ENV_FILE = _PROJECT_ROOT / ".env"
 
 
 class Settings(BaseSettings):
@@ -39,9 +47,10 @@ class Settings(BaseSettings):
     s3_bucket_name: str = "codevault-files"
 
     model_config = {
-        "env_file": ".env",
+        "env_file": str(_ENV_FILE),
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
+        "extra": "ignore",
     }
 
 

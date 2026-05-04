@@ -12,6 +12,7 @@
  *                  stays in localStorage.
  */
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FilePlus2, Library } from 'lucide-react';
 
 import {
@@ -22,15 +23,14 @@ import { useToast } from '../../components/Toast';
 import PageHeader from '../../components/PageHeader';
 
 import { Page, Btn, Grid } from './styles';
-import { BOILER } from './constants';
 import Tree from './Tree';
 import FileList from './FileList';
 import PreviewPane from './PreviewPane';
-import NewFileModal from './NewFileModal';
 import AddFromVaultModal from './AddFromVaultModal';
 
 export default function Folders() {
   const { toast, confirm } = useToast();
+  const navigate = useNavigate();
   const [folders, setFolders] = useState([]);
   const [snippets, setSnippets] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -52,13 +52,6 @@ export default function Folders() {
   // State keys: parent folder id (or '__root__').
   const [creatingUnder, setCreatingUnder] = useState(null);
   const [newName, setNewNameForCreate] = useState('');
-
-  // New File modal state
-  const [newOpen, setNewOpen] = useState(false);
-  const [newFileName, setNewFileName] = useState('');
-  const [newLang, setNewLang] = useState('cpp');
-  const [newCode, setNewCode] = useState(BOILER.cpp);
-  const [analyzing, setAnalyzing] = useState(false);
 
   // Add-from-Vault modal state
   const [vaultOpen, setVaultOpen] = useState(false);
@@ -178,55 +171,15 @@ export default function Folders() {
   const toggleExpand = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }));
 
   // ─── New File ──────────────────────────────────────────────
+  // Hands off to the Workspace with the destination folder pre-selected.
+  // The Workspace's Save button then handles AI analysis + persisting both
+  // the snippet (in this folder) and a vault problem reference.
   const openNewFile = () => {
     if (!activeId) {
       toast({ kind:'warn', title:'No folder selected', message:'Create or pick a folder first.' });
       return;
     }
-    setNewFileName(''); setNewLang('cpp'); setNewCode(BOILER.cpp); setNewOpen(true);
-  };
-
-  const onLangChange = (l) => { setNewLang(l); setNewCode(BOILER[l] || ''); };
-
-  const saveNewFile = async () => {
-    if (!newCode.trim()) {
-      toast({ kind:'warn', title:'Nothing to save', message:'Write some code before saving.' });
-      return;
-    }
-    setAnalyzing(true);
-    let analysis = null;
-    try {
-      const r = await fetch('/api/v1/upload/analyze', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: newCode, language: newLang,
-          filename: (newFileName || 'snippet') + '.' + newLang,
-        }),
-      });
-      if (r.ok) analysis = await r.json();
-    } catch {}
-    setAnalyzing(false);
-
-    const title = (newFileName || analysis?.title || 'Untitled').trim() || 'Untitled';
-    const created = addSnippet({
-      folderId: activeId,
-      title, language: newLang, code: newCode,
-      description: analysis?.problem_statement || '',
-      difficulty: analysis?.difficulty || '',
-      tags: analysis?.dsa_tags || [],
-      testCases: analysis?.generated_test_cases || [],
-    });
-    setNewOpen(false);
-    if (created) {
-      setSelected(created);
-      toast({
-        kind:'success',
-        title: analysis && !analysis.error ? 'File saved with AI analysis' : 'File saved',
-        message: analysis && !analysis.error
-          ? `Description, tags, and ${(analysis.generated_test_cases || []).length} test case${(analysis.generated_test_cases || []).length === 1 ? '' : 's'} attached.`
-          : 'AI analysis was unavailable — saved without metadata.',
-      });
-    }
+    navigate(`/workspace?newIn=${activeId}`);
   };
 
   // ─── Add from Vault ────────────────────────────────────────
@@ -340,13 +293,6 @@ export default function Folders() {
 
         <PreviewPane selected={selected}/>
       </Grid>
-
-      <NewFileModal
-        open={newOpen} onClose={()=>setNewOpen(false)}
-        newFileName={newFileName} setNewFileName={setNewFileName}
-        newLang={newLang} onLangChange={onLangChange}
-        newCode={newCode} setNewCode={setNewCode}
-        analyzing={analyzing} saveNewFile={saveNewFile}/>
 
       <AddFromVaultModal
         open={vaultOpen} onClose={()=>setVaultOpen(false)}

@@ -37,7 +37,13 @@
       "Bash(node .scan_unused.cjs)",
       "Bash(python -m pyflakes .)",
       "Bash(npx vite *)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('services/ai/analyzer.py'\\).read\\(\\)\\); ast.parse\\(open\\('routers/upload/single.py'\\).read\\(\\)\\); ast.parse\\(open\\('routers/upload/schemas.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast,io; [ast.parse\\(open\\(f, encoding='utf-8'\\).read\\(\\)\\) for f in ['services/ai/analyzer.py','routers/upload/single.py','routers/upload/schemas.py','routers/upload/workspace.py','routers/interactive.py','services/ai/prompts.py']]; print\\('OK'\\)\")",
+      "Bash(dir /b \"C:\\\\Users\\\\KIIT0001\\\\Documents\\\\Projects\\\\LearningProjects\\\\CodeVault\\\\backend\\\\.env\")",
+      "Bash(dir /b \"C:\\\\Users\\\\KIIT0001\\\\Documents\\\\Projects\\\\LearningProjects\\\\CodeVault\\\\.env\")",
+      "Bash(python -c \"from config import get_settings, _ENV_FILE; s=get_settings\\(\\); print\\('env_file:', _ENV_FILE, '| exists:', _ENV_FILE.exists\\(\\)\\); print\\('groq_key_loaded:', bool\\(s.groq_api_key\\), '| prefix:', \\(s.groq_api_key or ''\\)[:8]\\)\")",
+      "Bash(python *)"
     ]
   }
 }

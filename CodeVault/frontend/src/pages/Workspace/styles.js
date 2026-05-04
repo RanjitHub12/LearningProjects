@@ -67,7 +67,10 @@ export const ConsoleHead = styled.div`display:flex;align-items:center;gap:8px;pa
 
 export const ConBody = styled.pre`flex:1;margin:0;padding:10px 14px;overflow:auto;font-family:var(--cv-font-mono);font-size:.8rem;
   line-height:1.6;color:#c9d1d9;white-space:pre-wrap;word-break:break-word;background:#0d1117;
-  .err{color:#f85149;} .warn{color:#d29922;} .info{color:#58a6ff;} .dim{color:#484f58;}`;
+  .err{color:#f85149;} .warn{color:#d29922;} .info{color:#58a6ff;} .dim{color:#484f58;}
+  .in{color:#3fb950;background:rgba(63,185,80,.06);border-left:2px solid rgba(63,185,80,.45);
+    padding-left:8px;margin-left:-10px;}
+  .in .prompt{color:#3fb950;font-weight:700;opacity:.8;}`;
 
 export const MetRow = styled.div`display:flex;gap:12px;padding:6px 12px;border-top:1px solid rgba(255,255,255,.06);
   font-size:.7rem;color:#8b949e;font-family:var(--cv-font-mono);background:#0d1117;

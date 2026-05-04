@@ -1,19 +1,19 @@
 import {
-  Play, Terminal, CheckCircle2, Clock, MoreHorizontal,
-  RotateCcw, CalendarDays, Folder, Save,
+  Play, CheckCircle2, Clock, MoreHorizontal,
+  RotateCcw, CalendarDays, Save, FolderTree,
 } from 'lucide-react';
 import { TopBar, TimerBadge, Sel, Btn } from './styles';
 import { BOILER } from './constants';
 
-/** Top toolbar — language picker, Input/Run/Mark Solved + overflow menu. */
+/** Top toolbar — language picker, destination folder, Run / Save / Mark Solved + overflow menu. */
 export default function Toolbar({
   problem, isPractice, timer,
   lang, setLang, code, setCode, setActiveBoiler,
-  stdin, stdinOpen, setStdinOpen,
   pid, hasUserCode, solved, markSolved,
   running, runCode, interactive,
   saving, saveToVault,
-  loadDaily, openFolders,
+  loadDaily,
+  folderOptions, destFolderId, setDestFolderId, openFolderPicker,
   moreOpen, setMoreOpen,
 }) {
   const onLangChange = (e) => {
@@ -23,16 +23,13 @@ export default function Toolbar({
     setActiveBoiler(BOILER[nl] || '');
   };
 
-  // Daily challenge or saved scratch — Mark Solved is allowed even without
-  // a vault problem id when the user has loaded the LC daily.
-  const showMarkSolved = pid || (typeof window !== 'undefined' && window.__cvDaily);
+  // Mark Solved only applies to problems that already exist in the vault —
+  // unsaved scratch / freshly-loaded daily challenges have to be Saved first.
+  const showMarkSolved = !!pid;
 
   const menuItems = [
     { icon: RotateCcw,    label: 'Reset to boilerplate', onClick: ()=>{ setCode(BOILER[lang] || ''); setActiveBoiler(BOILER[lang] || ''); } },
     { icon: CalendarDays, label: "Load today's LeetCode daily", onClick: loadDaily },
-    { icon: Folder,       label: 'Snippets & folders', onClick: openFolders },
-    { icon: Save,         label: saving ? 'Saving to vault…' : 'Save to Vault (analyse + test)',
-                          onClick: saveToVault, disabled: saving || !code.trim() },
   ];
 
   return (
@@ -48,9 +45,28 @@ export default function Toolbar({
       <Sel value={lang} onChange={onLangChange}>
         <option value="cpp">C++</option><option value="python">Python</option><option value="java">Java</option>
       </Sel>
-      <Btn onClick={()=>setStdinOpen(o => !o)} title="Provide standard input for the next Run"
-        style={stdinOpen ? { background:'var(--cv-accent-muted)', color:'var(--cv-accent)', border:'1px solid var(--cv-border-hover)' } : undefined}>
-        <Terminal size={13}/> Input{stdin.trim() ? ` (${stdin.split(/\r?\n/).filter(Boolean).length})` : ''}
+      <Sel value={destFolderId || ''} onChange={e=>setDestFolderId(e.target.value || null)}
+        title="Folder to save into when you click Save"
+        style={destFolderId ? {
+          borderColor:'var(--cv-border-hover)', color:'var(--cv-accent)',
+          background:'var(--cv-accent-muted)', fontWeight:600,
+        } : undefined}>
+        <option value="">— Save to folder —</option>
+        {folderOptions.map(f => (
+          <option key={f.id} value={f.id}>{f.path}</option>
+        ))}
+      </Sel>
+      <Btn onClick={openFolderPicker}
+        title="Browse folders, create new ones, or pick a subfolder"
+        style={{ padding:'6px 10px' }}>
+        <FolderTree size={13}/> Browse
+      </Btn>
+      <Btn onClick={()=>saveToVault()} disabled={saving || !code.trim() || !destFolderId}
+        title={!destFolderId ? 'Pick a destination folder first' : 'Save to folder + create vault reference (AI fills title, description, analysis)'}
+        style={!destFolderId || saving || !code.trim() ? undefined : {
+          background:'var(--cv-gradient-primary)', color:'#fff', border:'none',
+        }}>
+        <Save size={13}/> {saving ? 'Saving…' : 'Save'}
       </Btn>
       {showMarkSolved && (
         solved

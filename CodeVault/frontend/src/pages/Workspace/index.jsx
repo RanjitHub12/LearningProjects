@@ -1,13 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { FileCode, Maximize2 } from 'lucide-react';
 
 import { recordSolve, isSolved as activityIsSolved } from '../../lib/activity';
-import {
-  getFolders, createFolder, deleteFolder,
-  getSnippets, addSnippet, deleteSnippet, renameSnippet,
-} from '../../lib/folders';
+import { getFolders, addSnippet } from '../../lib/folders';
 import { useToast } from '../../components/Toast';
 
 import { Page, SplitH, RightStack, EditorPane, Btn } from './styles';
@@ -16,18 +13,19 @@ import { normaliseIndent } from './utils';
 
 import Toolbar from './Toolbar';
 import LeftPane from './LeftPane';
-import StdinPanel from './StdinPanel';
 import ConsolePanel from './ConsolePanel';
 import FullscreenView from './FullscreenView';
 import SaveModal from './SaveModal';
-import SnippetsModal from './SnippetsModal';
 import DailyModal from './DailyModal';
+import FolderPickerModal from './FolderPickerModal';
 
 export default function Workspace() {
-  const { toast, confirm } = useToast();
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const pid = params.get('id');
   const snippetId = params.get('snippet');
+  // Folders → "New File" hands the destination folder over via this param.
+  const newInFolderId = params.get('newIn');
   const isPractice = params.get('practice') === 'true';
 
   // ─── Core editor state ─────────────────────────────────────
@@ -35,13 +33,13 @@ export default function Workspace() {
   const [solutions, setSolutions] = useState([]);
   const [code, setCode] = useState('');
   const [lang, setLang] = useState('cpp');
-  const [output, setOutput] = useState('');
+  // Console output is a list of typed segments so we can render user input
+  // ('in') visually distinct from program output ('out'/'err') and system
+  // notices ('sys'). Joined into plain text only when copying to clipboard.
+  const [output, setOutput] = useState([]);
+  const appendOut = (kind, text) => setOutput(o => [...o, { kind, text }]);
   const [metrics, setMetrics] = useState(null);
   const [running, setRunning] = useState(false);
-  // stdin handed to /api/v1/execute. Programs reading via scanf/cin/input()
-  // get this string (newline-separated answers) as their standard input.
-  const [stdin, setStdin] = useState('');
-  const [stdinOpen, setStdinOpen] = useState(false);
   // Interactive run (WebSocket + streaming stdin) — separate from one-shot Run.
   const [interactive, setInteractive] = useState(false);
   const wsRef = useRef(null);
@@ -55,21 +53,49 @@ export default function Workspace() {
 
   // ─── Save-to-Vault pipeline ────────────────────────────────
   const [saveOpen, setSaveOpen] = useState(false);
-  const [saveStep, setSaveStep] = useState(''); // 'analyze' | 'test' | 'dedup' | 'save' | ''
+  const [saveStep, setSaveStep] = useState(''); // 'analyze' | 'dedup' | 'save' | ''
   const [saveResult, setSaveResult] = useState(null);
   const [saving, setSaving] = useState(false);
 
   // ─── Solve tracking ────────────────────────────────────────
   const [solved, setSolved] = useState(false);
 
-  // ─── Snippets / folders modal ──────────────────────────────
-  const [foldersOpen, setFoldersOpen] = useState(false);
+  // ─── Destination folder for Save ───────────────────────────
+  // Save writes a snippet into this folder AND a vault problem reference.
   const [folders, setFolders] = useState([]);
-  const [snippets, setSnippets] = useState([]);
-  const [activeFolderId, setActiveFolderId] = useState(null);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [renamingId, setRenamingId] = useState(null);
-  const [renameValue, setRenameValue] = useState('');
+  const [destFolderId, setDestFolderId] = useState(newInFolderId || null);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+
+  useEffect(() => {
+    setFolders(getFolders());
+    const onChange = () => setFolders(getFolders());
+    window.addEventListener('cv:folders-changed', onChange);
+    window.addEventListener('storage', onChange);
+    return () => {
+      window.removeEventListener('cv:folders-changed', onChange);
+      window.removeEventListener('storage', onChange);
+    };
+  }, []);
+
+  // Flatten folders into "Year / May / Hard / Graphs" rows for the picker.
+  const folderOptions = useMemo(() => {
+    const byId = Object.fromEntries(folders.map(f => [f.id, f]));
+    const path = (f) => {
+      const segs = [];
+      let cur = f;
+      while (cur) { segs.unshift(cur.name); cur = cur.parentId ? byId[cur.parentId] : null; }
+      return segs.join(' / ');
+    };
+    return folders
+      .map(f => ({ id: f.id, path: path(f) }))
+      .sort((a, b) => a.path.localeCompare(b.path));
+  }, [folders]);
+
+  // If the user arrived from Folders → New File but the folder no longer
+  // exists, drop the stale id so the picker shows the placeholder.
+  useEffect(() => {
+    if (destFolderId && !folders.some(f => f.id === destFolderId)) setDestFolderId(null);
+  }, [folders, destFolderId]);
 
   // ─── LeetCode daily ────────────────────────────────────────
   const [dailyOpen, setDailyOpen] = useState(false);
@@ -82,8 +108,8 @@ export default function Workspace() {
   // tell user-written code apart from the unchanged stub.
   const [activeBoiler, setActiveBoiler] = useState('');
 
-  // "More" menu — keeps the toolbar uncluttered. Reset / Daily / Snippets /
-  // Save-to-Vault live in here so only Run / Mark Solved / Input stay visible.
+  // "More" menu — keeps the toolbar uncluttered. Reset + Daily live here so
+  // only Run / Save / Mark Solved stay visible up top.
   const [moreOpen, setMoreOpen] = useState(false);
 
   // ─── Practice timer ────────────────────────────────────────
@@ -115,24 +141,18 @@ export default function Workspace() {
     return () => clearInterval(timerRef.current);
   }, [sessionKey]);
 
-  // ─── Persist editor + stdin to sessionStorage ──────────────
-  // Keyed by problem id when available, else by language. Restores on reload.
+  // ─── Persist editor to localStorage ────────────────────────
+  // Keyed by problem id when available, else by language. localStorage so
+  // the draft survives tab switches, navigation away, and browser restart.
+  // The Reset-to-boilerplate menu item is the only way to wipe it.
   const codeKey = pid ? `cv:code:${pid}:${lang}` : `cv:code:scratch:${lang}`;
-  const stdinKey = pid ? `cv:stdin:${pid}` : `cv:stdin:scratch`;
   useEffect(() => {
-    const saved = sessionStorage.getItem(codeKey);
+    const saved = localStorage.getItem(codeKey);
     if (saved !== null) setCode(saved);
   }, [codeKey]);
   useEffect(() => {
-    if (code !== undefined) sessionStorage.setItem(codeKey, code);
+    if (code !== undefined) localStorage.setItem(codeKey, code);
   }, [code, codeKey]);
-  useEffect(() => {
-    const saved = sessionStorage.getItem(stdinKey);
-    if (saved !== null) setStdin(saved);
-  }, [stdinKey]);
-  useEffect(() => {
-    sessionStorage.setItem(stdinKey, stdin);
-  }, [stdin, stdinKey]);
 
   // ─── Load vault problem / saved snippet ────────────────────
   useEffect(() => {
@@ -142,7 +162,7 @@ export default function Workspace() {
         setProblem(d);
         setSolutions(d.solutions || []);
         // Only seed boilerplate when there's no persisted code for this problem+lang.
-        if (sessionStorage.getItem(codeKey) === null) {
+        if (localStorage.getItem(codeKey) === null) {
           setCode(BOILER[lang] || '');
           setActiveBoiler(BOILER[lang] || '');
         }
@@ -198,17 +218,13 @@ export default function Workspace() {
   // stdout/stderr into the console as they arrive, and forwards user-typed
   // lines to the process stdin. If the loaded problem has test cases and
   // the code lacks a main, the backend AI-wraps it before compiling.
-  // Any text in the StdinPanel is sent up-front so existing one-shot flows
-  // (paste all your inputs first, click Run) still work unchanged.
   const runInteractive = () => {
     if (running || interactive) return;
-    setOutput(''); setMetrics(null); setConCollapsed(false); setRunning(true);
+    setOutput([]); setMetrics(null); setConCollapsed(false); setRunning(true);
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const ws = new WebSocket(`${proto}//${window.location.host}/api/v1/execute/ws`);
     wsRef.current = ws;
-    let buf = '';
     let startedAt = 0;
-    const append = (txt) => { buf += txt; setOutput(buf); };
 
     ws.onopen = () => {
       ws.send(JSON.stringify({
@@ -231,29 +247,25 @@ export default function Workspace() {
       } else if (m.type === 'started') {
         startedAt = performance.now();
         setInteractive(true);
-        append('▸ Process started — type below and press Enter.\n');
-        // Pre-feed any text the user staged in the StdinPanel.
-        if (stdin) {
-          const seed = stdin.endsWith('\n') ? stdin : stdin + '\n';
-          ws.send(JSON.stringify({ type: 'stdin', data: seed }));
-          append(seed);
-        }
-      } else if (m.type === 'stdout' || m.type === 'stderr') {
-        append(m.data);
+        appendOut('sys', '▸ Process started — type below and press Enter.\n');
+      } else if (m.type === 'stdout') {
+        appendOut('out', m.data);
+      } else if (m.type === 'stderr') {
+        appendOut('err', m.data);
       } else if (m.type === 'compile_error') {
-        append(`[ERROR] Compilation failed\n${m.data}`);
+        appendOut('err', `[ERROR] Compilation failed\n${m.data}`);
       } else if (m.type === 'error') {
-        append(`[ERROR] ${m.data}\n`);
+        appendOut('err', `[ERROR] ${m.data}\n`);
       } else if (m.type === 'exit') {
         const ms = m.ms || (startedAt ? performance.now() - startedAt : 0);
-        append(`\n▸ Process exited (code ${m.code}) in ${ms.toFixed(1)}ms\n`);
+        appendOut('sys', `\n▸ Process exited (code ${m.code}) in ${ms.toFixed(1)}ms\n`);
         setMetrics({ execution_ms: ms, memory_kb: 0, passed: m.code === 0 });
         setInteractive(false); setRunning(false);
         try { ws.close(); } catch {}
       }
     };
     ws.onerror = () => {
-      append('[ERROR] WebSocket error\n');
+      appendOut('err', '[ERROR] WebSocket error\n');
     };
     ws.onclose = () => {
       setInteractive(false); setRunning(false);
@@ -265,8 +277,9 @@ export default function Workspace() {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ type: 'stdin', data: text }));
-    // Echo locally so the user sees what they typed in the transcript.
-    setOutput(o => o + text);
+    // Echo locally as an 'in' segment so it renders on its own visual track,
+    // separate from program stdout / stderr.
+    appendOut('in', text);
   };
 
   const killInteractive = () => {
@@ -285,22 +298,35 @@ export default function Workspace() {
     }
   }, []);
 
-  const saveToVault = async (hint = '') => {
+  // saveToVault accepts an options bag:
+  //   - hint:   extra free-text passed to the AI when it failed to infer.
+  //   - manual: { title, statement, difficulty, tags } — when present we
+  //             skip the AI on the backend and persist these values directly.
+  //             Used by the SaveModal's "Add details manually" form.
+  const saveToVault = async (opts = {}) => {
+    const { hint = '', manual = null } = opts;
     if (!code.trim() || saving) return;
+    if (!destFolderId) {
+      toast({ kind:'warn', title:'Pick a folder', message:'Choose a destination folder before saving.' });
+      return;
+    }
     setSaveOpen(true); setSaving(true); setSaveResult(null);
     setSaveStep('analyze');
     try {
-      // Backend runs analyze → test → dedup → save sequentially. We animate
-      // the visible step every ~600ms while we wait so the user sees progress.
-      const stepTimers = [
-        setTimeout(()=>setSaveStep('test'), 1500),
-        setTimeout(()=>setSaveStep('dedup'), 3500),
-        setTimeout(()=>setSaveStep('save'), 4500),
+      // Backend runs analyze → dedup → save sequentially. We animate the
+      // visible step while we wait so the user sees progress.
+      const stepTimers = manual ? [
+        setTimeout(()=>setSaveStep('dedup'), 250),
+        setTimeout(()=>setSaveStep('save'), 600),
+      ] : [
+        setTimeout(()=>setSaveStep('dedup'), 1800),
+        setTimeout(()=>setSaveStep('save'), 2600),
       ];
       // Forward whatever metadata the workspace already knows about — for
       // a LeetCode daily or a vault problem, this gives the AI the title +
       // statement + sample test cases so it doesn't have to re-derive them
       // from a bare function. The backend trusts these over its own guesses.
+      // When `manual` is set, these fields ARE the persisted values.
       const ctxTests = (problem?.generated_test_cases || []).map(tc => ({
         input: typeof tc.input === 'string' ? tc.input : String(tc.input ?? ''),
         expected_output: typeof tc.expected_output === 'string'
@@ -308,16 +334,21 @@ export default function Workspace() {
       }));
       // Strip the "(LeetCode Daily)" suffix we add for display so the saved
       // title matches the canonical problem name.
-      const ctxTitle = (problem?.title || '').replace(/\s*\(LeetCode Daily\)\s*$/i, '').trim();
+      const ctxTitle = manual?.title
+        ?? (problem?.title || '').replace(/\s*\(LeetCode Daily\)\s*$/i, '').trim();
+      const ctxStatement = manual?.statement ?? (problem?.problem_statement || '');
+      const ctxTagsArr = manual?.tags ?? (problem?.dsa_tags || []);
+      const ctxDifficulty = manual?.difficulty ?? (problem?.difficulty || '');
       const r = await fetch('/api/v1/upload/save-from-workspace', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           code, language: lang, hint,
           context_title: ctxTitle,
-          context_statement: problem?.problem_statement || '',
-          context_tags: problem?.dsa_tags || [],
-          context_difficulty: problem?.difficulty || '',
+          context_statement: ctxStatement,
+          context_tags: ctxTagsArr,
+          context_difficulty: ctxDifficulty,
           context_test_cases: ctxTests,
+          manual: !!manual,
         }),
       });
       stepTimers.forEach(clearTimeout);
@@ -325,16 +356,24 @@ export default function Workspace() {
       setSaveResult(d);
       setSaveStep('');
 
-      // If the user wrote only a function and the AI auto-generated a main /
-      // driver to read stdin and call it, replace the editor with the runnable
-      // version so the user can see (and re-run) what the AI produced.
-      if (d?.runner_added && d.executable_code && d.executable_code !== code) {
-        setCode(d.executable_code);
-        toast({
-          kind: 'info',
-          title: 'AI added a runner',
-          message: 'Your function had no main, so the AI generated one that reads stdin per the test cases. Editor updated.',
-        });
+      // On a clean save OR a duplicate (same vault problem already exists),
+      // also drop a snippet into the chosen folder so the folder view shows
+      // it and the Problem Vault picks it up via the cv:snippets index.
+      const linkedVaultId = d?.problem_id || d?.duplicate_of_id || '';
+      const linkedTitle = d?.title || d?.duplicate_of_title || 'Untitled';
+      if ((d?.status === 'saved' || d?.status === 'duplicate') && destFolderId) {
+        try {
+          addSnippet({
+            folderId: destFolderId,
+            title: linkedTitle,
+            language: lang,
+            code,
+            description: d?.problem_statement || '',
+            difficulty: d?.difficulty || '',
+            tags: d?.dsa_tags || [],
+            vaultProblemId: linkedVaultId || undefined,
+          });
+        } catch {}
       }
 
       // Auto-record an activity entry when the save pipeline accepted the
@@ -363,59 +402,27 @@ export default function Workspace() {
     setSolved(pid ? activityIsSolved(pid) : false);
   }, [pid, problem]);
 
+  // Mark Solved is only meaningful for problems that already live in the
+  // vault — i.e. ones that have been Save'd into a folder. Unsaved daily
+  // challenges and scratch code can't be marked solved; the user must Save
+  // first (which auto-records the solve as part of the pipeline).
   const markSolved = () => {
-    if (problem && pid) {
-      recordSolve({
-        problemId: pid,
-        title: problem.title,
-        difficulty: problem.difficulty,
-        tags: problem.dsa_tags || [],
-        source: 'vault',
+    if (!problem || !pid) {
+      toast({
+        kind: 'warn',
+        title: 'Save first',
+        message: 'Pick a destination folder and click Save before marking this as solved.',
       });
-      setSolved(true);
       return;
     }
-    // Daily challenge or scratch path — uses metadata stashed when loaded.
-    const dly = window.__cvDaily;
-    if (dly) {
-      recordSolve({
-        problemId: `lc:${dly.title}`,
-        title: `${dly.title} (LeetCode Daily)`,
-        difficulty: dly.difficulty,
-        tags: dly.tags || [],
-        source: 'leetcode-daily',
-      });
-      setSolved(true);
-    }
-  };
-
-  // ─── Folders / snippets (modal) ────────────────────────────
-  const refreshFolders = () => {
-    setFolders(getFolders());
-    setSnippets(getSnippets());
-  };
-  const openFolders = () => { refreshFolders(); setFoldersOpen(true); };
-  const handleCreateFolder = () => {
-    const f = createFolder(newFolderName);
-    if (f) { setNewFolderName(''); setActiveFolderId(f.id); refreshFolders(); }
-  };
-  const handleSaveSnippet = () => {
-    if (!activeFolderId || !code.trim()) return;
-    // Auto-name: prefer the loaded problem title, else a language-stamped default.
-    const auto = problem?.title
-      || (window.__cvDaily?.title)
-      || `${lang.toUpperCase()} snippet · ${new Date().toLocaleString()}`;
-    const created = addSnippet({ folderId: activeFolderId, title: auto, language: lang, code });
-    refreshFolders();
-    if (created) {
-      toast({ kind:'success', title:'Snippet saved', message:'Saved to folder. Click the pencil icon to rename.' });
-    }
-  };
-  const startRename = (snip) => { setRenamingId(snip.id); setRenameValue(snip.title); };
-  const commitRename = () => {
-    if (renamingId && renameValue.trim()) renameSnippet(renamingId, renameValue.trim());
-    setRenamingId(null); setRenameValue('');
-    refreshFolders();
+    recordSolve({
+      problemId: pid,
+      title: problem.title,
+      difficulty: problem.difficulty,
+      tags: problem.dsa_tags || [],
+      source: 'vault',
+    });
+    setSolved(true);
   };
 
   // ─── LeetCode daily ────────────────────────────────────────
@@ -449,7 +456,7 @@ export default function Workspace() {
     setActiveBoiler(boiler);
     // Clear any stale persisted code for this language so the boilerplate we
     // just loaded is the visible state until the user edits.
-    try { sessionStorage.setItem(`cv:code:scratch:${chosenLang}`, boiler); } catch {}
+    try { localStorage.setItem(`cv:code:scratch:${chosenLang}`, boiler); } catch {}
     setProblem({
       title: `${d.title} (LeetCode Daily)`,
       difficulty: d.difficulty,
@@ -485,7 +492,8 @@ export default function Workspace() {
     }
   };
   const copyOutput = () => {
-    navigator.clipboard.writeText(output).then(()=>{
+    const text = output.map(s => s.text).join('');
+    navigator.clipboard.writeText(text).then(()=>{
       setOutCopied(true);
       setTimeout(()=>setOutCopied(false), 1500);
     }).catch(()=>{});
@@ -508,11 +516,12 @@ export default function Workspace() {
       <Toolbar
         problem={problem} isPractice={isPractice} timer={timer}
         lang={lang} setLang={setLang} code={code} setCode={setCode} setActiveBoiler={setActiveBoiler}
-        stdin={stdin} stdinOpen={stdinOpen} setStdinOpen={setStdinOpen}
         pid={pid} hasUserCode={hasUserCode} solved={solved} markSolved={markSolved}
         running={running} runCode={runCode} interactive={interactive}
         saving={saving} saveToVault={saveToVault}
-        loadDaily={loadDaily} openFolders={openFolders}
+        loadDaily={loadDaily}
+        folderOptions={folderOptions} destFolderId={destFolderId} setDestFolderId={setDestFolderId}
+        openFolderPicker={()=>setFolderPickerOpen(true)}
         moreOpen={moreOpen} setMoreOpen={setMoreOpen}/>
 
       <SplitH>
@@ -546,10 +555,6 @@ export default function Workspace() {
             </div>
           </EditorPane>
 
-          {stdinOpen && (
-            <StdinPanel stdin={stdin} setStdin={setStdin} problem={problem}/>
-          )}
-
           <ConsolePanel
             output={output} running={running} metrics={metrics}
             conCollapsed={conCollapsed} setConCollapsed={setConCollapsed}
@@ -561,25 +566,18 @@ export default function Workspace() {
       <SaveModal
         open={saveOpen} onClose={()=>setSaveOpen(false)} saving={saving}
         saveStep={saveStep} saveResult={saveResult}
-        onRetry={(hint)=>saveToVault(hint)}/>
-
-      <SnippetsModal
-        open={foldersOpen} onClose={()=>setFoldersOpen(false)}
-        code={code} lang={lang} setLang={setLang} setCode={setCode}
-        folders={folders} snippets={snippets}
-        activeFolderId={activeFolderId} setActiveFolderId={setActiveFolderId}
-        newFolderName={newFolderName} setNewFolderName={setNewFolderName}
-        handleCreateFolder={handleCreateFolder}
-        deleteFolder={deleteFolder} refreshFolders={refreshFolders}
-        handleSaveSnippet={handleSaveSnippet}
-        renamingId={renamingId} renameValue={renameValue} setRenameValue={setRenameValue}
-        startRename={startRename} commitRename={commitRename} setRenamingId={setRenamingId}
-        deleteSnippet={deleteSnippet} confirm={confirm}/>
+        onRetryHint={(hint)=>saveToVault({ hint })}
+        onSaveManual={(manual)=>saveToVault({ manual })}/>
 
       <DailyModal
         open={dailyOpen} onClose={()=>setDailyOpen(false)}
         loading={dailyLoading} error={dailyError} daily={daily}
         applyToWorkspace={applyDailyToWorkspace}/>
+
+      <FolderPickerModal
+        open={folderPickerOpen} onClose={()=>setFolderPickerOpen(false)}
+        currentId={destFolderId}
+        onPick={(id)=>setDestFolderId(id)}/>
     </Page>
   );
 }

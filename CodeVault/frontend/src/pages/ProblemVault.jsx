@@ -1,8 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { FolderOpen, Search, ChevronRight } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
+import { getFolders, getSnippets } from '../lib/folders';
+
+/**
+ * Problem Vault — flattened pointer view across every folder.
+ *
+ * The vault is no longer a separate DB-backed list; it's a global index of
+ * the snippets the user saved across all folders. Each row links into the
+ * Workspace via `?snippet=<id>` (or `?id=<vaultProblemId>` when the snippet
+ * is linked to a vault problem reference) so the user can jump straight in.
+ */
 
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
 
@@ -28,6 +38,8 @@ const Chip = styled.button`
   font-family: inherit; transition: all 0.15s;
   &:hover { border-color: var(--cv-accent); color: var(--cv-accent); }`;
 
+const TagChip = styled(Chip)`padding: 5px 12px; font-size: 0.72rem; font-weight: 500;`;
+
 const Empty = styled.div`
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   min-height: 350px; text-align: center;
@@ -44,30 +56,68 @@ const Row = styled(Link)`
   transition: all 0.15s;
   &:hover { border-color: var(--cv-border-hover); transform: translateX(2px);
     box-shadow: var(--cv-glass-shadow); }
-  .title { flex: 1; font-weight: 600; font-size: 0.9rem; color: var(--cv-text-primary); }
+  .title { flex: 1; font-weight: 600; font-size: 0.9rem; color: var(--cv-text-primary);
+    display: flex; flex-direction: column; gap: 3px; }
+  .crumb { font-size: 0.7rem; color: var(--cv-text-muted); font-weight: 500; }
   .tags { display: flex; gap: 4px; flex-wrap: wrap; }
   .arrow { color: var(--cv-text-muted); }`;
 
 const LEVELS = ['All', 'Easy', 'Medium', 'Hard', 'Impossible'];
 
 export default function ProblemVault() {
-  const [problems, setProblems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [folders, setFolders] = useState([]);
+  const [snippets, setSnippets] = useState([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
+  const [tagFilters, setTagFilters] = useState([]);
 
   useEffect(() => {
-    const t = setTimeout(async () => {
-      try {
-        const p = new URLSearchParams();
-        if (search) p.set('search', search);
-        if (filter !== 'All') p.set('difficulty', filter);
-        const r = await fetch(`/api/v1/problems?${p}`);
-        if (r.ok) setProblems(await r.json());
-      } catch {} finally { setLoading(false); }
-    }, 250);
-    return () => clearTimeout(t);
-  }, [search, filter]);
+    const refresh = () => { setFolders(getFolders()); setSnippets(getSnippets()); };
+    refresh();
+    window.addEventListener('cv:folders-changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('cv:folders-changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  const folderPath = useMemo(() => {
+    const byId = Object.fromEntries(folders.map(f => [f.id, f]));
+    return (id) => {
+      const segs = [];
+      let cur = byId[id];
+      while (cur) { segs.unshift(cur.name); cur = cur.parentId ? byId[cur.parentId] : null; }
+      return segs.join(' / ') || '—';
+    };
+  }, [folders]);
+
+  // Flat list of distinct tags across the whole vault, ordered by frequency
+  // so the most common ones surface first as filter chips.
+  const allTags = useMemo(() => {
+    const counts = {};
+    for (const s of snippets) for (const t of (s.tags || [])) counts[t] = (counts[t] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([t]) => t);
+  }, [snippets]);
+
+  const toggleTag = (t) => setTagFilters(prev =>
+    prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]
+  );
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const tagsLC = tagFilters.map(t => t.toLowerCase());
+    return snippets
+      .filter(s => !q
+        || s.title.toLowerCase().includes(q)
+        || (s.tags || []).some(t => t.toLowerCase().includes(q))
+        || (s.description || '').toLowerCase().includes(q))
+      .filter(s => filter === 'All' || (s.difficulty || '').toLowerCase() === filter.toLowerCase())
+      .filter(s => tagsLC.length === 0 || tagsLC.every(t =>
+        (s.tags || []).some(st => st.toLowerCase().includes(t))
+      ))
+      .sort((a, b) => (b.savedAt || '').localeCompare(a.savedAt || ''));
+  }, [snippets, search, filter, tagFilters]);
 
   return (
     <Page>
@@ -75,37 +125,59 @@ export default function ProblemVault() {
         eyebrow="The Vault"
         title="Problem"
         accent="archive."
-        subtitle="Every solution you've ingested, parsed, and catalogued. Search, filter, and step into the workspace to revisit any of them."
+        subtitle="Every code file you've saved across all your folders, indexed in one place. Search, filter by difficulty or tag, and jump back into any of them."
       />
 
       <Toolbar>
         <SearchBox>
           <Search />
-          <input placeholder="Search problems..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input placeholder="Search problems, tags, descriptions..." value={search} onChange={e => setSearch(e.target.value)} />
         </SearchBox>
         {LEVELS.map(l => <Chip key={l} $active={filter === l} onClick={() => setFilter(l)}>{l}</Chip>)}
       </Toolbar>
 
-      {loading ? (
-        <Empty><FolderOpen /><h2>Loading...</h2></Empty>
-      ) : problems.length === 0 ? (
+      {allTags.length > 0 && (
+        <Toolbar style={{ marginTop: -8 }}>
+          {allTags.slice(0, 16).map(t => (
+            <TagChip key={t} $active={tagFilters.includes(t)} onClick={() => toggleTag(t)}>{t}</TagChip>
+          ))}
+        </Toolbar>
+      )}
+
+      {snippets.length === 0 ? (
         <Empty>
           <FolderOpen />
           <h2>No problems yet</h2>
-          <p>Upload solution files via Bulk Upload. The AI engine will parse and catalog them here.</p>
+          <p>Open the Workspace, write a solution, pick a destination folder, then click Save. The AI fills in the title, description, and analysis automatically.</p>
+        </Empty>
+      ) : visible.length === 0 ? (
+        <Empty>
+          <FolderOpen />
+          <h2>No matches</h2>
+          <p>No saved problems match the current search and filters.</p>
         </Empty>
       ) : (
         <Table>
-          {problems.map(p => (
-            <Row key={p.id} to={`/workspace?id=${p.id}`}>
-              <span className="title">{p.title}</span>
-              <div className="tags">
-                {(p.dsa_tags || []).slice(0, 3).map(t => <span key={t} className="pill pill--tag">{t}</span>)}
-              </div>
-              <span className={`pill pill--${p.difficulty?.toLowerCase()}`}>{p.difficulty}</span>
-              <ChevronRight size={16} className="arrow" />
-            </Row>
-          ))}
+          {visible.map(s => {
+            const href = s.vaultProblemId
+              ? `/workspace?id=${s.vaultProblemId}&snippet=${s.id}`
+              : `/workspace?snippet=${s.id}`;
+            return (
+              <Row key={s.id} to={href}>
+                <span className="title">
+                  {s.title}
+                  <span className="crumb">{folderPath(s.folderId)}</span>
+                </span>
+                <div className="tags">
+                  {(s.tags || []).slice(0, 3).map(t => <span key={t} className="pill pill--tag">{t}</span>)}
+                </div>
+                {s.difficulty && (
+                  <span className={`pill pill--${s.difficulty.toLowerCase()}`}>{s.difficulty}</span>
+                )}
+                <ChevronRight size={16} className="arrow" />
+              </Row>
+            );
+          })}
         </Table>
       )}
     </Page>

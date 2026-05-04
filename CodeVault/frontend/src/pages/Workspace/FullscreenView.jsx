@@ -3,7 +3,7 @@ import Editor from '@monaco-editor/react';
 import { Clock, Play, Minimize2, Send, Square, RotateCw } from 'lucide-react';
 import { FullscreenOverlay, FSToolbar, TimerBadge } from './styles';
 import { LANG, BOILER } from './constants';
-import { renderConsole } from './utils';
+import { renderOutputSegments } from './utils';
 
 /** Distraction-free fullscreen editor with a right-hand console + live stdin
  *  panel so the user can type runtime input and re-run without leaving the
@@ -15,7 +15,8 @@ export default function FullscreenView({
   interactive, onSendLine, onKill,
   exit,
 }) {
-  const conLines = renderConsole(running && !output ? '⏳ Compiling and executing...' : output);
+  const hasContent = Array.isArray(output) ? output.length > 0 : !!output;
+  const conLines = renderOutputSegments(output, { spinner: running && !hasContent });
   const [line, setLine] = useState('');
   const inputRef = useRef(null);
   const bodyRef = useRef(null);
@@ -143,16 +144,26 @@ export default function FullscreenView({
             fontFamily:'var(--cv-font-mono)', fontSize:'.78rem', lineHeight:1.6,
             color:'#c9d1d9', background:'#0d1117', whiteSpace:'pre-wrap',
             wordBreak:'break-word' }}>
-            {output || running
-              ? conLines.map(l => (
-                  <div key={l.key} className={l.cls || undefined}
-                    style={l.cls === 'err' ? { color:'#f85149' }
-                      : l.cls === 'warn' ? { color:'#d29922' }
-                      : l.cls === 'info' ? { color:'#58a6ff' }
-                      : l.cls === 'dim' ? { color:'#484f58' } : undefined}>
-                    {l.text}
-                  </div>
-                ))
+            {hasContent || running
+              ? conLines.map(l => {
+                  const colorFor = (cls) =>
+                    cls === 'err' ? '#f85149'
+                    : cls === 'warn' ? '#d29922'
+                    : cls === 'info' ? '#58a6ff'
+                    : cls === 'dim' ? '#484f58'
+                    : cls === 'in' ? '#3fb950' : undefined;
+                  const wrapStyle = l.cls === 'in'
+                    ? { color:'#3fb950', background:'rgba(63,185,80,.06)',
+                        borderLeft:'2px solid rgba(63,185,80,.45)',
+                        paddingLeft:8, marginLeft:-10 }
+                    : { color: colorFor(l.cls) };
+                  return (
+                    <div key={l.key} className={l.cls || undefined} style={wrapStyle}>
+                      {l.cls === 'in' && <span style={{ fontWeight:700, opacity:.8, marginRight:4 }}>›</span>}
+                      {l.text || ' '}
+                    </div>
+                  );
+                })
               : <div style={{ color:'#484f58' }}>Click Run to start. Type input below while the program runs.</div>}
           </div>
 

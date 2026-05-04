@@ -16,41 +16,41 @@ async def analyze_code_file(content: str, filename: str, language: str, hint: st
     groq = get_groq_client()
     if groq:
         try:
-            print(f"[AI] 🔍 Analyzing '{filename}' with Groq LLaMA 3.3...")
+            print(f"[AI] Analyzing '{filename}' with Groq LLaMA 3.3...")
             result = await _groq_analyze(groq, content, filename, language, hint)
-            print(f"[AI] ✅ Groq analysis complete — title: '{result.get('title', '?')}', "
+            print(f"[AI] Groq analysis complete -- title: '{result.get('title', '?')}', "
                   f"approaches: {len(result.get('extracted_approaches', []))}")
             result["_engine"] = "groq"
             return result
         except Exception as e:
-            print(f"[AI] ❌ Groq full extraction failed for '{filename}': {e}")
+            print(f"[AI] Groq full extraction failed for '{filename}': {e}")
             traceback.print_exc()
             # Try a much smaller "essentials only" prompt before falling out
-            # to Gemini — full extraction can fail on long files due to
+            # to Gemini -- full extraction can fail on long files due to
             # JSON-mode token truncation. Title/statement/tags/test_cases
             # alone almost always fit.
             try:
-                print(f"[AI] 🔁 Retrying with minimal Groq prompt for '{filename}'...")
+                print(f"[AI] Retrying with minimal Groq prompt for '{filename}'...")
                 minimal = await _groq_minimal(groq, content, filename, language, hint)
-                print(f"[AI] ✅ Minimal Groq complete — title: '{minimal.get('title', '?')}'")
+                print(f"[AI] Minimal Groq complete -- title: '{minimal.get('title', '?')}'")
                 minimal["_engine"] = "groq-minimal"
                 return minimal
             except Exception as e2:
-                print(f"[AI] ❌ Minimal Groq also failed: {e2}")
+                print(f"[AI] Minimal Groq also failed: {e2}")
 
     gemini = get_gemini_client()
     if gemini:
         try:
-            print(f"[AI] 🔍 Analyzing '{filename}' with Gemini...")
+            print(f"[AI] Analyzing '{filename}' with Gemini...")
             result = await _gemini_analyze(gemini, content, filename, language, hint)
-            print(f"[AI] ✅ Gemini analysis complete — title: '{result.get('title', '?')}'")
+            print(f"[AI] Gemini analysis complete -- title: '{result.get('title', '?')}'")
             result["_engine"] = "gemini"
             return result
         except Exception as e:
-            print(f"[AI] ❌ Gemini failed for '{filename}': {e}")
+            print(f"[AI] Gemini failed for '{filename}': {e}")
             traceback.print_exc()
 
-    print(f"[AI] ⚠️  Using heuristic fallback for '{filename}' (no AI engine available)")
+    print(f"[AI] Using heuristic fallback for '{filename}' (no AI engine available)")
     result = heuristic_analyze(content, filename, language)
     result["_engine"] = "heuristic"
     return result
@@ -58,13 +58,18 @@ async def analyze_code_file(content: str, filename: str, language: str, hint: st
 
 async def _groq_minimal(client, content: str, filename: str, language: str, hint: str = "") -> dict:
     """Slimmer Groq call when the full extraction fails. Asks only for the
-    essentials so the JSON is small enough to never get truncated."""
+    essentials so the JSON is small enough to never get truncated.
+
+    Uses ``llama-3.1-8b-instant`` rather than the 70B model so that a daily
+    token-quota exhaustion on the big model doesn't take down this fallback
+    too -- the 8B model has its own (much larger) free-tier bucket.
+    """
     sys_msg = (
         "You analyze a single DSA solution file and return ONLY this JSON: "
         "{\"title\": \"...\", \"problem_statement\": \"...\", \"difficulty\": "
         "\"Easy|Medium|Hard\", \"dsa_tags\": [\"...\"], \"generated_test_cases\": "
         "[{\"input\": \"...\", \"expected_output\": \"...\", \"explanation\": \"...\"}]}. "
-        "Use the filename as a strong hint for the problem title (kebab-case → "
+        "Use the filename as a strong hint for the problem title (kebab-case -> "
         "Title Case). Generate 2-3 stdin/stdout test cases. No prose, no markdown."
     )
     user_msg = (
@@ -72,7 +77,7 @@ async def _groq_minimal(client, content: str, filename: str, language: str, hint
         f"```{language}\n{content}\n```"
     )
     response = await client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": sys_msg},
             {"role": "user", "content": user_msg},
