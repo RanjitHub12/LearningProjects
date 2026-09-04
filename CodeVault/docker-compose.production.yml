@@ -1,0 +1,27 @@
+services:
+  sandbox-postgres:
+    ports: []
+
+  redis:
+    ports: []
+
+  api:
+    environment:
+      ENVIRONMENT: production
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-codevault}:${POSTGRES_PASSWORD:-codevault_secret}@sandbox-postgres:5432/${POSTGRES_DB:-codevault_db}
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes: []
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2
+
+  worker:
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-codevault}:${POSTGRES_PASSWORD:-codevault_secret}@sandbox-postgres:5432/${POSTGRES_DB:-codevault_db}
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes: []

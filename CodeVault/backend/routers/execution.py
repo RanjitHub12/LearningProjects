@@ -53,7 +53,7 @@ RUN_CMD = {
     "java": "java -cp {dir} Solution",
 }
 
-FILE_EXT = {"cpp": ".cpp", "python": ".py", "java": ".java", "sql": ".sql"}
+FILE_EXT = {"cpp": ".cpp", "python": ".py", "java": ".java"}
 
 
 @router.post("/execute", response_model=ExecutionResponse)

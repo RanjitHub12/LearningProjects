@@ -126,6 +126,19 @@ npm install
 npm run dev
 ```
 
+### Production configuration
+
+Before exposing the application, set these values in the root `.env` file:
+
+```env
+ENVIRONMENT=production
+JWT_SECRET=<long-random-secret>
+CORS_ORIGINS=https://your-frontend-domain.example
+```
+
+The first account created becomes the administrator. Rotate the Groq key if it
+has ever been shared or printed in logs.
+
 | Service     | URL                            |
 |-------------|--------------------------------|
 | Frontend    | http://localhost:5173          |

@@ -21,7 +21,8 @@ class Settings(BaseSettings):
     # ─── Application ──────────────────────────────────────────────
     app_name: str = "CodeVault"
     environment: str = "development"
-    debug: bool = True
+    debug: bool = False
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     # ─── Database ─────────────────────────────────────────────────
     database_url: str = (

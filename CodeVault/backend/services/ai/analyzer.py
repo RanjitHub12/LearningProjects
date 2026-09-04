@@ -16,7 +16,7 @@ async def analyze_code_file(content: str, filename: str, language: str, hint: st
     groq = get_groq_client()
     if groq:
         try:
-            print(f"[AI] Analyzing '{filename}' with Groq LLaMA 3.3...")
+            print(f"[AI] Analyzing '{filename}' with Groq GPT-OSS...")
             result = await _groq_analyze(groq, content, filename, language, hint)
             print(f"[AI] Groq analysis complete -- title: '{result.get('title', '?')}', "
                   f"approaches: {len(result.get('extracted_approaches', []))}")
@@ -77,7 +77,7 @@ async def _groq_minimal(client, content: str, filename: str, language: str, hint
         f"```{language}\n{content}\n```"
     )
     response = await client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-20b",
         messages=[
             {"role": "system", "content": sys_msg},
             {"role": "user", "content": user_msg},
@@ -100,7 +100,7 @@ async def _groq_analyze(client, content: str, filename: str, language: str, hint
         f"the code logic.{_hint_block(hint)}\n\n```{language}\n{content}\n```"
     )
     response = await client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": EXTRACTION_PROMPT},
             {"role": "user", "content": user_msg},

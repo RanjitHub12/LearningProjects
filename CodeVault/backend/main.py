@@ -4,15 +4,17 @@ CodeVault — FastAPI Application Entry Point
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from database import init_db, dispose_db
-from routers import health, problems
+from routers import auth, health, problems
 from routers import upload, execution, leetcode, admin, interactive
+from routers.auth import current_user
 
 settings = get_settings()
+allowed_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
 
 
 # ─── Lifespan (startup/shutdown) ─────────────────────────────────
@@ -39,11 +41,7 @@ app = FastAPI(
 # ─── CORS Middleware ─────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,9 +49,10 @@ app.add_middleware(
 
 # ─── Register Routers ────────────────────────────────────────────
 app.include_router(health.router)
-app.include_router(problems.router)
-app.include_router(upload.router)
-app.include_router(execution.router)
-app.include_router(interactive.router)
-app.include_router(leetcode.router)
-app.include_router(admin.router)
+app.include_router(auth.router)
+app.include_router(problems.router, dependencies=[Depends(current_user)])
+app.include_router(upload.router, dependencies=[Depends(current_user)])
+app.include_router(execution.router, dependencies=[Depends(current_user)])
+app.include_router(interactive.router, dependencies=[Depends(current_user)])
+app.include_router(leetcode.router, dependencies=[Depends(current_user)])
+app.include_router(admin.router, dependencies=[Depends(current_user)])

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useThemeMode } from '../context/ThemeContext';
 import {
   LayoutDashboard, FolderOpen, Upload, BarChart3,
-  Settings, Sun, Moon, Zap, Code2, PanelLeftClose, PanelLeft, Flame, Folder
+  Settings, Sun, Moon, Zap, Code2, PanelLeftClose, PanelLeft, Flame, Folder, LogOut
 } from 'lucide-react';
 import styled from 'styled-components';
 import { getStreak } from '../lib/activity';
@@ -152,16 +152,29 @@ const StatusRow = styled.div`
 `;
 
 const Main = styled.main`
-  flex: 1; margin-left: ${p => p.$collapsed ? '56px' : '240px'};
+  flex: 1; position: relative; margin-left: ${p => p.$collapsed ? '56px' : '240px'};
   padding: 36px 40px; min-height: 100vh;
   transition: margin-left 0.22s ease;
   @media(max-width:1024px){ padding: 28px; }
-  @media(max-width:768px){ margin-left:0; padding:18px; }
+  @media(max-width:768px){ margin-left:56px; padding:18px; }
 `;
 
-export default function Layout() {
+const Account = styled.div`
+  position: absolute; top: 16px; right: 24px; z-index: 5;
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 7px 5px 11px; border: 1px solid var(--cv-border-default);
+  border-radius: 999px; background: var(--cv-glass-bg);
+  color: var(--cv-text-secondary); font-size: .76rem;
+  .name { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  button { display: inline-flex; align-items: center; justify-content: center; padding: 5px;
+    border: 0; border-radius: 50%; background: transparent; color: var(--cv-text-muted); cursor: pointer; }
+  button:hover { color: var(--cv-danger); background: var(--cv-accent-muted); }
+`;
+
+export default function Layout({ user, onLogout }) {
   const { mode, toggle } = useThemeMode();
-  const [collapsed, setCollapsed] = useState(false);
+  const location = useLocation();
+  const [collapsed, setCollapsed] = useState(() => window.innerWidth <= 768);
   const [streak, setStreak] = useState(() => getStreak());
   const c = collapsed;
 
@@ -219,7 +232,15 @@ export default function Layout() {
           <StatusRow $c={c}><span className="dot" /><span className="ltext">API Connected</span></StatusRow>
         </Footer>
       </Sidebar>
-      <Main $collapsed={c}><Outlet /></Main>
+      <Main $collapsed={c}>
+        {location.pathname !== '/workspace' && (
+          <Account>
+            <span className="name" title={user?.email}>{user?.username}</span>
+            <button onClick={onLogout} aria-label="Log out" title="Log out"><LogOut size={14} /></button>
+          </Account>
+        )}
+        <Outlet />
+      </Main>
     </Shell>
   );
 }

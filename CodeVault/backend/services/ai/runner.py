@@ -51,7 +51,7 @@ async def generate_runner(code: str, language: str, test_cases: list) -> Optiona
         try:
             print(f"[AI] 🔧 Generating {language} runner via Groq...")
             response = await groq.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="openai/gpt-oss-120b",
                 messages=[
                     {"role": "system", "content": RUNNER_PROMPT},
                     {"role": "user", "content": user_msg},
