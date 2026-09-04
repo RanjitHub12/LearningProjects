@@ -34,19 +34,18 @@ async def require_admin(user: User = Depends(current_user)) -> User:
 
 @router.post("/wipe-all")
 async def wipe_all(
-    request: Request,
     db: AsyncSession = Depends(get_db),
-    user: User = Depends(require_admin),
+    user: User = Depends(current_user),
 ):
     """
-    Truncate every vault-data table. Resets problems, solutions, and practice
-    telemetry. Users/invitations are left alone so the auth surface still works.
+    Delete all problems and practice attempts for the current user.
+    Since solutions and attempts cascade from problems or users, this cleans
+    up the user's entire vault while leaving others' data intact.
     """
-    _ensure_local(request)
-    # Order matters even with cascade — TRUNCATE ... CASCADE handles deps cleanly.
-    await db.execute(text(
-        "TRUNCATE TABLE practice_attempts, problem_solutions, vault_problems "
-        "RESTART IDENTITY CASCADE"
-    ))
+    # Delete all problems uploaded by this user (cascades to solutions and attempts on those problems)
+    await db.execute(text("DELETE FROM vault_problems WHERE user_id = :uid"), {"uid": user.id})
+    # Delete any practice attempts made by this user (if any exist for other problems)
+    await db.execute(text("DELETE FROM practice_attempts WHERE user_id = :uid"), {"uid": user.id})
+    
     await db.commit()
-    return {"status": "ok", "message": "All vault data wiped."}
+    return {"status": "ok", "message": "All your vault data has been wiped."}

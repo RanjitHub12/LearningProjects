@@ -27,7 +27,8 @@ const Table = styled.table`
   td { padding: 12px 16px; font-size: 0.85rem; border-bottom: 1px solid var(--cv-border-subtle);
     vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: var(--cv-accent-muted); }`;
+  tr:hover td { background: var(--cv-accent-muted); }
+  @media(max-width:480px){ th, td { padding: 10px 10px; font-size: 0.78rem; } }`;
 
 const Actions = styled.div`display: flex; gap: 6px;`;
 
@@ -170,6 +171,7 @@ export default function Admin() {
           <p>Upload problems first via Bulk Upload.</p>
         </Empty>
       ) : (
+        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <Table>
           <thead><tr>
             <th>Title</th><th>Difficulty</th><th>Tags</th><th>Solutions</th><th>Actions</th>
@@ -218,6 +220,7 @@ export default function Admin() {
             ))}
           </tbody>
         </Table>
+        </div>
       )}
     </Page>
   );

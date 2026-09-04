@@ -5,6 +5,7 @@ export const Page = styled.div`animation: fadeIn 0.4s ease;`;
 export const DropArea = styled.div`
   border: 2px dashed ${p => p.$active ? 'var(--cv-accent)' : 'var(--cv-border-default)'};
   border-radius: 16px; padding: 48px; text-align: center; cursor: pointer;
+  @media(max-width:480px){ padding: 24px 16px; }
   background: ${p => p.$active ? 'var(--cv-accent-muted)' : 'var(--cv-glass-bg)'};
   backdrop-filter: blur(20px); transition: all 0.25s ease;
   &:hover { border-color: var(--cv-accent); background: var(--cv-accent-muted); }
@@ -27,7 +28,9 @@ export const FileRow = styled.div`
   .status--pending { color: var(--cv-warning); }`;
 
 export const ActionBar = styled.div`
-  margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;`;
+  margin-top: 20px; display: flex; gap: 12px; justify-content: flex-end;
+  @media(max-width:480px){ flex-direction: column; }
+  @media(max-width:480px) button { width: 100%; }`;
 
 export const Btn = styled.button`
   padding: 10px 24px; border-radius: 10px; border: none; cursor: pointer;
@@ -64,6 +67,7 @@ export const ResultCard = styled.div`
 
 export const ResultHeader = styled.div`
   display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  @media(max-width:480px){ flex-wrap: wrap; }
   .icon { width: 36px; height: 36px; border-radius: 8px; display: flex;
     align-items: center; justify-content: center;
     background: var(--cv-accent-muted); color: var(--cv-accent); }

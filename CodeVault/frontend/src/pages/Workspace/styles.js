@@ -1,10 +1,12 @@
 import styled from 'styled-components';
 
 /* ═══ Layout ══════════════════════════════════════════════════ */
-export const Page = styled.div`animation:fadeIn .4s ease;display:flex;flex-direction:column;height:calc(100vh - 64px);`;
+export const Page = styled.div`animation:fadeIn .4s ease;display:flex;flex-direction:column;height:calc(100vh - 64px);
+  @media(max-width:768px){ height:calc(100dvh - 56px - 16px); }`;
 
 export const TopBar = styled.div`display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;
-  .title{font-size:1.05rem;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}`;
+  .title{font-size:1.05rem;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  @media(max-width:480px){ gap:6px; .title{font-size:.9rem;} }`;
 
 export const TimerBadge = styled.div`
   display:flex;align-items:center;gap:6px;padding:5px 14px;border-radius:8px;
@@ -123,7 +125,8 @@ export const Backdrop = styled.div`position:fixed;inset:0;background:rgba(0,0,0,
 
 export const Modal = styled.div`width:min(640px,100%);max-height:90vh;display:flex;flex-direction:column;
   background:var(--cv-bg-secondary,#11151d);border:1px solid var(--cv-border-default);border-radius:14px;overflow:hidden;
-  box-shadow:0 20px 60px rgba(0,0,0,.5);`;
+  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  @media(max-width:480px){ width:100%; max-height:100vh; max-height:100dvh; border-radius:0; }`;
 
 export const MHead = styled.div`display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--cv-border-subtle);
   .t{font-size:1rem;font-weight:700;color:var(--cv-text-primary);flex:1;}

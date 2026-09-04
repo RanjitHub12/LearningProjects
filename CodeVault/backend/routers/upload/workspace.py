@@ -14,7 +14,9 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import VaultProblem, ProblemSolution, SolutionType, DifficultyLevel, SupportedLanguage
+from database import get_db
+from models import VaultProblem, ProblemSolution, SolutionType, DifficultyLevel, SupportedLanguage, User
+from routers.auth import current_user
 from services.ai import analyze_code_file
 
 from .schemas import WorkspaceSaveRequest, WorkspaceSaveResponse
@@ -27,6 +29,7 @@ router = APIRouter()
 async def save_from_workspace(
     payload: WorkspaceSaveRequest,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     # ── 0. Build a context block from any loaded LeetCode/vault problem ─
     # When the workspace already shows problem metadata we fold it into the
@@ -122,7 +125,7 @@ async def save_from_workspace(
 
     # ── 2. Duplicate check (case-insensitive title match) ──────
     existing = await db.execute(
-        select(VaultProblem).where(func.lower(VaultProblem.title) == title.lower())
+        select(VaultProblem).where(func.lower(VaultProblem.title) == title.lower(), VaultProblem.user_id == user.id)
     )
     existing_problem = existing.scalar_one_or_none()
     if existing_problem:
@@ -137,6 +140,7 @@ async def save_from_workspace(
 
     # ── 3. Save ────────────────────────────────────────────────
     problem = VaultProblem(
+        user_id=user.id,
         title=title,
         problem_statement=analysis.get("problem_statement", ""),
         difficulty=DIFFICULTY_MAP.get(analysis.get("difficulty", "Medium"), DifficultyLevel.MEDIUM),

@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models import VaultProblem, ProblemSolution, SolutionType, DifficultyLevel, SupportedLanguage
+from models import VaultProblem, ProblemSolution, SolutionType, DifficultyLevel, SupportedLanguage, User
+from routers.auth import current_user
 from services.ai import analyze_code_file
 
 from .schemas import SingleFileUpload, UploadResponse
@@ -18,6 +19,7 @@ router = APIRouter()
 async def upload_single_file(
     payload: SingleFileUpload,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """Upload and analyze a single code file through the AI engine."""
 
@@ -35,10 +37,10 @@ async def upload_single_file(
     approach_names = [a.get("approach_name", f"Approach {i+1}") for i, a in enumerate(extracted)]
     engine = analysis.get("_engine", "")
 
-    # Dedup by exact title match — if the same problem already exists, append
+    # Dedup by exact title match AND user match — if the same problem already exists, append
     # this upload as another solution rather than creating a duplicate problem.
     existing = await db.execute(
-        select(VaultProblem).where(VaultProblem.title == analysis.get("title", ""))
+        select(VaultProblem).where(VaultProblem.title == analysis.get("title", ""), VaultProblem.user_id == user.id)
     )
     existing_problem = existing.scalar_one_or_none()
 
@@ -67,6 +69,7 @@ async def upload_single_file(
         )
 
     problem = VaultProblem(
+        user_id=user.id,
         title=analysis.get("title", payload.filename),
         problem_statement=analysis.get("problem_statement", ""),
         difficulty=difficulty,

@@ -17,7 +17,8 @@ import { getFolders, getSnippets } from '../lib/folders';
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
 
 const Toolbar = styled.div`
-  display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;`;
+  display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+  @media(max-width:480px){ gap: 8px; }`;
 
 const SearchBox = styled.div`
   flex: 1; min-width: 200px; position: relative;
@@ -36,7 +37,8 @@ const Chip = styled.button`
   background: ${p => p.$active ? 'var(--cv-accent-muted)' : 'transparent'};
   color: ${p => p.$active ? 'var(--cv-accent)' : 'var(--cv-text-secondary)'};
   font-family: inherit; transition: all 0.15s;
-  &:hover { border-color: var(--cv-accent); color: var(--cv-accent); }`;
+  &:hover { border-color: var(--cv-accent); color: var(--cv-accent); }
+  @media(max-width:480px){ padding: 8px 14px; min-height: 36px; }`;
 
 const TagChip = styled(Chip)`padding: 5px 12px; font-size: 0.72rem; font-weight: 500;`;
 
@@ -60,7 +62,10 @@ const Row = styled(Link)`
     display: flex; flex-direction: column; gap: 3px; }
   .crumb { font-size: 0.7rem; color: var(--cv-text-muted); font-weight: 500; }
   .tags { display: flex; gap: 4px; flex-wrap: wrap; }
-  .arrow { color: var(--cv-text-muted); }`;
+  .arrow { color: var(--cv-text-muted); }
+  @media(max-width:600px){ flex-wrap: wrap; padding: 12px 14px;
+    .tags { order: 3; width: 100%; }
+    .arrow { order: 4; } }`;
 
 const LEVELS = ['All', 'Easy', 'Medium', 'Hard', 'Impossible'];
 

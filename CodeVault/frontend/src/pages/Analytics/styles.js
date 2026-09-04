@@ -12,6 +12,7 @@ export const Card = styled.div`
   -webkit-backdrop-filter: blur(var(--cv-glass-blur));
   border: 1px solid transparent; background-clip: padding-box;
   border-radius: 16px; padding: 26px; box-shadow: var(--cv-glass-shadow);
+  @media(max-width:480px){ padding: 18px; }
   &::before {
     content: ''; position: absolute; inset: 0; padding: 1px; border-radius: inherit;
     background: var(--cv-gradient-border);
@@ -36,13 +37,15 @@ export const Empty = styled.div`
 
 export const Stats = styled.div`
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
-  @media(max-width:900px){grid-template-columns:repeat(2,1fr);}`;
+  @media(max-width:900px){grid-template-columns:repeat(2,1fr);}
+  @media(max-width:480px){grid-template-columns:1fr; gap: 10px;}`;
 
 export const StatBox = styled.div`
   position: relative;
   background: var(--cv-glass-bg); backdrop-filter: blur(var(--cv-glass-blur));
   border: 1px solid transparent; background-clip: padding-box;
   border-radius: 14px; padding: 20px; text-align: center;
+  @media(max-width:480px){ padding: 14px; }
   &::before {
     content: ''; position: absolute; inset: 0; padding: 1px; border-radius: inherit;
     background: var(--cv-gradient-border);

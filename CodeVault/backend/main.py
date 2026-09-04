@@ -24,6 +24,18 @@ async def lifespan(app: FastAPI):
     """Application lifecycle: init DB on startup, close on shutdown."""
     print("CodeVault API starting up...")
     await init_db()
+    
+    # Auto-migration: ensure user_id column exists on vault_problems
+    from database import engine
+    from sqlalchemy import text
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text("ALTER TABLE vault_problems ADD COLUMN user_id UUID REFERENCES users(id) ON DELETE CASCADE"))
+            print("Successfully added user_id column to vault_problems.")
+    except Exception as e:
+        # Expected if column already exists
+        pass
+
     yield
     print("CodeVault API shutting down...")
     await dispose_db()

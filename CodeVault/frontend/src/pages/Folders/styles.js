@@ -85,6 +85,8 @@ export const FileTile = styled.div`
   display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
   cursor: pointer; transition: all .15s;
   &:hover{ border-color: var(--cv-border-hover); transform: translateY(-1px); }
+  @media(max-width:480px){ grid-template-columns: auto 1fr; gap: 8px; padding: 10px;
+    .actions { grid-column: 1 / -1; justify-content: flex-end; } }
   .icon { width: 32px; height: 32px; border-radius: 8px; display:flex; align-items:center; justify-content:center;
     background: var(--cv-accent-muted); color: var(--cv-accent); }
   .meta{ min-width: 0; }
@@ -126,6 +128,7 @@ export const Modal = styled.div`
   background: var(--cv-bg-secondary, #11151d);
   border: 1px solid var(--cv-border-default); border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,.55); overflow: hidden;
+  @media(max-width:480px){ width:100%; max-height:100vh; max-height:100dvh; border-radius:0; }
 `;
 
 export const MHead = styled.div`

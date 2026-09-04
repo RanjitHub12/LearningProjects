@@ -17,6 +17,8 @@ from schemas import (
     VaultProblemResponse,
     VaultProblemUpdate,
 )
+from routers.auth import current_user
+from models import User
 
 router = APIRouter(prefix="/api/v1/problems", tags=["Problems"])
 
@@ -30,9 +32,10 @@ async def list_problems(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """List all vault problems with optional filters."""
-    query = select(VaultProblem).options(selectinload(VaultProblem.solutions))
+    query = select(VaultProblem).options(selectinload(VaultProblem.solutions)).where(VaultProblem.user_id == user.id)
 
     if difficulty:
         diff_map = {
@@ -75,12 +78,13 @@ async def list_problems(
 async def get_problem(
     problem_id: UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """Get a single vault problem by ID, including solutions."""
     result = await db.execute(
         select(VaultProblem)
         .options(selectinload(VaultProblem.solutions))
-        .where(VaultProblem.id == problem_id)
+        .where(VaultProblem.id == problem_id, VaultProblem.user_id == user.id)
     )
     problem = result.scalar_one_or_none()
     if not problem:
@@ -120,8 +124,14 @@ async def get_problem(
 async def get_problem_solutions(
     problem_id: UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """Get all solutions for a problem with extracted approaches."""
+    # Ensure problem belongs to user first
+    prob_result = await db.execute(select(VaultProblem.id).where(VaultProblem.id == problem_id, VaultProblem.user_id == user.id))
+    if not prob_result.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found")
+        
     result = await db.execute(
         select(ProblemSolution)
         .where(ProblemSolution.problem_id == problem_id)
@@ -148,9 +158,11 @@ async def get_problem_solutions(
 async def create_problem(
     payload: VaultProblemCreate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """Create a new vault problem (used by AI ingestion or admin)."""
     problem = VaultProblem(
+        user_id=user.id,
         title=payload.title,
         problem_statement=payload.problem_statement,
         difficulty=payload.difficulty,
@@ -169,10 +181,11 @@ async def update_problem(
     problem_id: UUID,
     payload: VaultProblemUpdate,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """Partially update a vault problem (admin override)."""
     result = await db.execute(
-        select(VaultProblem).where(VaultProblem.id == problem_id)
+        select(VaultProblem).where(VaultProblem.id == problem_id, VaultProblem.user_id == user.id)
     )
     problem = result.scalar_one_or_none()
     if not problem:
@@ -206,10 +219,11 @@ async def update_problem(
 async def delete_problem(
     problem_id: UUID,
     db: AsyncSession = Depends(get_db),
+    user: User = Depends(current_user),
 ):
     """Delete a vault problem and cascade to solutions/attempts."""
     result = await db.execute(
-        select(VaultProblem).where(VaultProblem.id == problem_id)
+        select(VaultProblem).where(VaultProblem.id == problem_id, VaultProblem.user_id == user.id)
     )
     problem = result.scalar_one_or_none()
     if not problem:

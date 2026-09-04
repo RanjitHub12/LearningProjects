@@ -35,7 +35,7 @@ export default function Login({ onAuthenticated }) {
 
   return (
     <main style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', padding: 24 }}>
-      <form onSubmit={submit} style={{ width: 'min(100%, 420px)', padding: 32, border: '1px solid var(--cv-border-default)', borderRadius: 14, background: 'var(--cv-bg-elevated)', boxShadow: 'var(--cv-glass-shadow-lg)' }}>
+      <form onSubmit={submit} style={{ width: 'min(100%, 420px)', padding: 'clamp(20px, 4vw, 32px)', border: '1px solid var(--cv-border-default)', borderRadius: 14, background: 'var(--cv-bg-elevated)', boxShadow: 'var(--cv-glass-shadow-lg)' }}>
         <h1 style={{ marginBottom: 8 }}>{registering ? 'Join CodeVault.' : 'Welcome back.'}</h1>
         <p style={{ color: 'var(--cv-text-secondary)', marginBottom: 24 }}>{registering ? 'Create your private practice account.' : 'Sign in to continue your practice.'}</p>
         {registering && <input required minLength={3} placeholder="Username" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} style={inputStyle} />}
@@ -49,6 +49,7 @@ export default function Login({ onAuthenticated }) {
   );
 }
 
-const inputStyle = { display: 'block', width: '100%', marginBottom: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--cv-border-default)', background: 'var(--cv-bg-secondary)', color: 'var(--cv-text-primary)', font: 'inherit' };
-const buttonStyle = { width: '100%', padding: '12px 14px', border: 0, borderRadius: 8, background: 'var(--cv-gradient-primary)', color: '#fff', font: 'inherit', fontWeight: 700, cursor: 'pointer' };
-const linkStyle = { display: 'block', margin: '16px auto 0', border: 0, background: 'transparent', color: 'var(--cv-accent)', cursor: 'pointer', font: 'inherit' };
+const inputStyle = { display: 'block', width: '100%', marginBottom: 12, padding: '12px 14px', borderRadius: 8, border: '1px solid var(--cv-border-default)', background: 'var(--cv-bg-secondary)', color: 'var(--cv-text-primary)', font: 'inherit', minHeight: 44 };
+const buttonStyle = { width: '100%', padding: '14px 14px', border: 0, borderRadius: 8, background: 'var(--cv-gradient-primary)', color: '#fff', font: 'inherit', fontWeight: 700, cursor: 'pointer', minHeight: 48 };
+const linkStyle = { display: 'block', margin: '16px auto 0', border: 0, background: 'transparent', color: 'var(--cv-accent)', cursor: 'pointer', font: 'inherit', minHeight: 44, padding: '10px 0' };
+

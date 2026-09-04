@@ -51,6 +51,7 @@ const Copy = styled.div`
 
 const Actions = styled.div`
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  @media(max-width:480px){ width: 100%; gap: 8px; }
 `;
 
 /* A small 3-diamond cluster — sits in the corner like a fleuron. Drawn

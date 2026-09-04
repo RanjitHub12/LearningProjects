@@ -11,6 +11,7 @@ export const Hero = styled.section`
   align-items: center; gap: 48px;
   padding: 24px 0 56px;
   @media(max-width: 980px){ grid-template-columns: 1fr; gap: 28px; padding-bottom: 36px; }
+  @media(max-width: 480px){ padding: 12px 0 28px; gap: 20px; }
 `;
 
 export const HeroCopy = styled.div`
@@ -48,6 +49,7 @@ export const HeroCopy = styled.div`
 
 export const HeroArt = styled.div`
   position: relative; min-height: 320px;
+  @media(max-width:480px){ min-height: 200px; }
   display: flex; align-items: center; justify-content: center;
   &::before {
     content: ''; position: absolute; inset: -10% 5%;
@@ -83,7 +85,8 @@ export const Section = styled.section`margin-bottom: 64px;`;
 
 export const Stats = styled.div`
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px;
-  @media(max-width:1024px){ grid-template-columns: repeat(2, 1fr); }`;
+  @media(max-width:1024px){ grid-template-columns: repeat(2, 1fr); }
+  @media(max-width:480px){ grid-template-columns: 1fr; gap: 12px; }`;
 
 export const Stat = styled.div`
   position: relative;
@@ -91,6 +94,7 @@ export const Stat = styled.div`
   -webkit-backdrop-filter: blur(var(--cv-glass-blur));
   border: 1px solid transparent; background-clip: padding-box;
   border-radius: 16px; padding: 28px 24px;
+  @media(max-width:480px){ padding: 20px 16px; min-height: auto; }
   display: flex; flex-direction: column; gap: 18px;
   min-height: 160px;
   transition: transform 0.2s ease, box-shadow 0.2s ease; box-shadow: var(--cv-glass-shadow);

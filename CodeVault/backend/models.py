@@ -83,6 +83,12 @@ class VaultProblem(Base):
     __tablename__ = "vault_problems"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=True, # Needs to be true initially to support existing data
+        index=True,
+    )
     title = Column(String(300), nullable=False, index=True)
     problem_statement = Column(Text, nullable=True)
     difficulty = Column(
@@ -98,6 +104,7 @@ class VaultProblem(Base):
     )
 
     # Relationships
+    user = relationship("User", backref="uploaded_problems")
     solutions = relationship(
         "ProblemSolution", back_populates="problem", cascade="all, delete-orphan"
     )

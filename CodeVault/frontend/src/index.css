@@ -272,3 +272,34 @@ h1 {
 @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes pulse   { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
 @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+
+/* ─── Mobile Responsive Overrides ─────────────────────────────── */
+@media (max-width: 768px) {
+  /* Reduce argyle pattern density on mobile for less visual clutter */
+  body::before {
+    background-size: 40px 40px, 40px 40px, 40px 40px;
+    background-position: 0 0, 0 0, 20px 20px;
+    opacity: .5;
+  }
+
+  /* Make pills more touch-friendly */
+  .pill {
+    padding: 4px 10px;
+    font-size: 0.68rem;
+  }
+
+  /* Headings: slightly smaller on mobile */
+  h1 {
+    font-size: clamp(1.6rem, 5vw, 2.4rem);
+  }
+}
+
+@media (max-width: 480px) {
+  /* Ensure form controls are touch-sized (44px minimum) */
+  input, select, textarea, button {
+    min-height: 40px;
+  }
+
+  /* Tighten scrollbar for more content space */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+}
