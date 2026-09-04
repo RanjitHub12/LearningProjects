@@ -8,14 +8,27 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.engine import make_url
 
 from config import get_settings
 
 settings = get_settings()
 
+
+def _engine_options(database_url: str) -> dict:
+    """Translate libpq's sslmode query parameter for asyncpg."""
+    url = make_url(database_url)
+    query = dict(url.query)
+    sslmode = query.pop("sslmode", None)
+    clean_url = url.set(query=query)
+    options = {"url": clean_url}
+    if sslmode:
+        options["connect_args"] = {"ssl": sslmode}
+    return options
+
 # ─── Async Engine ─────────────────────────────────────────────────
 engine = create_async_engine(
-    settings.database_url,
+    **_engine_options(settings.database_url),
     echo=settings.debug,
     pool_size=10,
     max_overflow=20,
