@@ -9,9 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import get_settings
 from database import init_db, dispose_db
-from routers import auth, health, problems
+from routers import auth, problems
 from routers import upload, execution, leetcode, admin, interactive
 from routers.auth import current_user
+from schemas import HealthResponse
 
 settings = get_settings()
 allowed_origins = [origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()]
@@ -48,7 +49,21 @@ app.add_middleware(
 )
 
 # ─── Register Routers ────────────────────────────────────────────
-app.include_router(health.router)
+@app.get("/", tags=["System"])
+async def root():
+    return {"service": "CodeVault API", "status": "ok"}
+
+
+@app.get("/health", response_model=HealthResponse, tags=["System"])
+async def health_check():
+    return HealthResponse(
+        status="ok",
+        service="CodeVault API",
+        version="0.1.0",
+        environment=settings.environment,
+    )
+
+
 app.include_router(auth.router)
 app.include_router(problems.router, dependencies=[Depends(current_user)])
 app.include_router(upload.router, dependencies=[Depends(current_user)])
