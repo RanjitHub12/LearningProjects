@@ -9,13 +9,14 @@ import Workspace from './pages/Workspace';
 import Analytics from './pages/Analytics';
 import Admin from './pages/Admin';
 import Folders from './pages/Folders';
+import { apiFetch } from './lib/api';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [checkingSession, setCheckingSession] = useState(true);
 
   useEffect(() => {
-    fetch('/api/v1/auth/me', { credentials: 'include' })
+    apiFetch('/api/v1/auth/me')
       .then(response => response.ok ? response.json() : null)
       .then(setUser)
       .finally(() => setCheckingSession(false));
@@ -25,7 +26,7 @@ export default function App() {
   if (!user) return <Login onAuthenticated={setUser} />;
 
   const logout = async () => {
-    await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+    await apiFetch('/api/v1/auth/logout', { method: 'POST' });
     setUser(null);
   };
 

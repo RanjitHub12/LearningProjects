@@ -20,6 +20,7 @@ import {
   getSnippets, addSnippet, deleteSnippet, renameSnippet,
 } from '../../lib/folders';
 import { useToast } from '../../components/Toast';
+import { apiFetch } from '../../lib/api';
 import PageHeader from '../../components/PageHeader';
 
 import { Page, Btn, Grid } from './styles';
@@ -190,7 +191,7 @@ export default function Folders() {
     }
     setVaultOpen(true); setVaultSelected(null); setVaultSearch(''); setVaultLoading(true);
     try {
-      const r = await fetch('/api/v1/problems?limit=200');
+      const r = await apiFetch('/api/v1/problems?limit=200');
       if (r.ok) setVaultProblems(await r.json());
     } catch {} finally {
       setVaultLoading(false);
@@ -213,7 +214,7 @@ export default function Folders() {
     try {
       // The list endpoint may not include solutions/approaches; the detail
       // endpoint does, so always pull the full record before importing.
-      const r = await fetch(`/api/v1/problems/${vaultSelected.id}`);
+      const r = await apiFetch(`/api/v1/problems/${vaultSelected.id}`);
       const full = r.ok ? await r.json() : vaultSelected;
       const sol = (full.solutions || [])[0] || null;
       const approaches = sol?.extracted_approaches || [];

@@ -12,6 +12,7 @@ import { useState, useEffect, useMemo } from 'react';
 import PageHeader from '../../components/PageHeader';
 import { useToast } from '../../components/Toast';
 import { getFolders, createFolder, addSnippet } from '../../lib/folders';
+import { apiFetch } from '../../lib/api';
 
 import { Page } from './styles';
 import { detectLang } from './constants';
@@ -91,7 +92,7 @@ export default function UploadPage() {
       try {
         const text = await file.text();
         const language = detectLang(file.name);
-        const res = await fetch('/api/v1/upload/single', {
+        const res = await apiFetch('/api/v1/upload/single', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: file.name, content: text, language }),
         });

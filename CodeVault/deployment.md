@@ -16,6 +16,56 @@ The simplest reliable arrangement is:
 
 The API container includes `g++`, Java, and Python for the code runner. Choose a host that permits subprocesses and does not block WebSocket upgrades.
 
+## 1A. No-card split deployment
+
+Use this layout when deploying through the four free accounts:
+
+- Vercel hosts the `frontend` directory.
+- Render hosts the FastAPI backend from `backend/Dockerfile`.
+- Neon supplies PostgreSQL. Copy its pooled or direct connection string into Render as `DATABASE_URL`, changing the driver to `postgresql+asyncpg://` if necessary.
+- Upstash supplies Redis. Copy its Redis connection URL into Render as `REDIS_URL`. Use the `rediss://` URL when provided.
+
+### Deploy the backend on Render
+
+1. Open Render and choose **New > Web Service**.
+2. Connect the GitHub repository.
+3. Set the service root directory to `CodeVault` if the repository contains the project inside that folder.
+4. Choose **Docker** and set the Dockerfile path to `backend/Dockerfile` and the Docker build context to `backend`.
+5. Add these environment variables in Render. Never commit their values:
+
+```env
+ENVIRONMENT=production
+DEBUG=false
+DATABASE_URL=postgresql+asyncpg://<neon-connection>
+REDIS_URL=rediss://<upstash-connection>
+JWT_SECRET=<long-random-secret>
+CORS_ORIGINS=https://<your-vercel-domain>
+GROQ_API_KEY=<new-groq-key>
+GEMINI_API_KEY=
+```
+
+6. Deploy and copy the Render service URL, for example `https://codevault-api.onrender.com`.
+7. Confirm `https://codevault-api.onrender.com/health` returns a healthy response.
+
+Render must expose port `8000`, support outbound HTTPS, and allow the subprocess code runner. The free service may sleep after inactivity.
+
+### Deploy the frontend on Vercel
+
+1. Open Vercel and choose **Add New > Project**.
+2. Import the same GitHub repository.
+3. Set the project root directory to `CodeVault/frontend`.
+4. Keep the build command `npm run build` and output directory `dist`.
+5. Add this Vercel environment variable for Production:
+
+```env
+VITE_API_URL=https://codevault-api.onrender.com
+```
+
+6. Deploy the project and copy the Vercel HTTPS domain.
+7. Return to Render and replace `CORS_ORIGINS` with that exact Vercel domain, then redeploy the backend.
+
+The included `frontend/vercel.json` preserves React routes such as `/workspace` on refresh. The frontend API helper also sends the interactive WebSocket to Render. Do not use `localhost` in `VITE_API_URL`.
+
 ## 2. Required production values
 
 Create a deployment-only environment configuration. Never commit it.
@@ -70,6 +120,16 @@ npm run build
 Publish the contents of `frontend/dist` to the static host. Configure SPA fallback so every unknown path serves `index.html`; otherwise direct visits to `/workspace`, `/folders`, or `/analytics` may return 404.
 
 The frontend must call the API through the same HTTPS origin or through an API origin listed in `CORS_ORIGINS`. Because sessions use HttpOnly cookies, cross-origin hosting must support credentials and HTTPS. A reverse proxy under one domain is the least error-prone arrangement.
+
+For separate Vercel and Render services, set this Vercel build variable:
+
+```env
+VITE_API_URL=https://your-api-service.onrender.com
+```
+
+The frontend uses this value for REST and WebSocket requests. The API must set
+`CORS_ORIGINS` to the exact Vercel HTTPS origin. Production authentication
+cookies are `Secure` and `SameSite=None`, which is required for this setup.
 
 ## 5. First account
 

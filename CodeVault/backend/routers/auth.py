@@ -48,7 +48,7 @@ def _set_session(response: Response, user: User) -> None:
         _token(user),
         httponly=True,
         secure=settings.environment.lower() == "production",
-        samesite="lax",
+        samesite="none" if settings.environment.lower() == "production" else "lax",
         max_age=settings.access_token_expire_minutes * 60,
     )
 

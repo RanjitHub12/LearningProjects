@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { apiFetch } from '../lib/api';
 
 export default function Login({ onAuthenticated }) {
   const [registering, setRegistering] = useState(false);
@@ -11,7 +12,7 @@ export default function Login({ onAuthenticated }) {
     setBusy(true);
     setError('');
     try {
-      const response = await fetch(`/api/v1/auth/${registering ? 'register' : 'login'}`, {
+      const response = await apiFetch(`/api/v1/auth/${registering ? 'register' : 'login'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

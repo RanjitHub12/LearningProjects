@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Settings, Trash2, Edit3, Save, X, RefreshCw, Eraser, Database } from 'lucide-react';
 import { useToast } from '../components/Toast';
+import { apiFetch } from '../lib/api';
 import PageHeader from '../components/PageHeader';
 
 const Page = styled.div`animation: fadeIn 0.4s ease;`;
@@ -59,7 +60,7 @@ export default function Admin() {
 
   const load = () => {
     setLoading(true);
-    fetch('/api/v1/problems?limit=200').then(r => r.ok ? r.json() : [])
+    apiFetch('/api/v1/problems?limit=200').then(r => r.ok ? r.json() : [])
       .then(setProblems).catch(() => {}).finally(() => setLoading(false));
   };
 
@@ -69,7 +70,7 @@ export default function Admin() {
   const cancelEdit = () => { setEditing(null); setEditVal({}); };
 
   const saveEdit = async (id) => {
-    await fetch(`/api/v1/problems/${id}`, {
+    await apiFetch(`/api/v1/problems/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editVal),
     });
@@ -79,7 +80,7 @@ export default function Admin() {
   const deleteProblem = async (id) => {
     const ok = await confirm({ title:'Delete problem?', message:'This problem and all its solutions will be permanently removed.', danger:true, confirmLabel:'Delete' });
     if (!ok) return;
-    await fetch(`/api/v1/problems/${id}`, { method: 'DELETE' });
+    await apiFetch(`/api/v1/problems/${id}`, { method: 'DELETE' });
     load();
     toast({ kind:'success', title:'Deleted', message:'Problem removed from the vault.' });
   };
@@ -88,7 +89,7 @@ export default function Admin() {
     const ok = await confirm({ title:'Purge ALL problems?', message:'This will delete every problem and solution in the vault. This cannot be undone.', danger:true, confirmLabel:'Purge everything' });
     if (!ok) return;
     for (const p of problems) {
-      await fetch(`/api/v1/problems/${p.id}`, { method: 'DELETE' });
+      await apiFetch(`/api/v1/problems/${p.id}`, { method: 'DELETE' });
     }
     load();
     toast({ kind:'success', title:'Vault purged', message:`${problems.length} problem${problems.length===1?'':'s'} removed.` });
@@ -105,7 +106,7 @@ export default function Admin() {
     });
     if (!ok) return;
     try {
-      const r = await fetch('/api/v1/admin/wipe-all', { method: 'POST' });
+      const r = await apiFetch('/api/v1/admin/wipe-all', { method: 'POST' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       load();
       toast({ kind:'success', title:'Database wiped', message:'All vault data removed from Postgres.' });

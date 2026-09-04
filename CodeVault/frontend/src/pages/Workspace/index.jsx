@@ -5,6 +5,7 @@ import { FileCode, Maximize2 } from 'lucide-react';
 
 import { recordSolve, isSolved as activityIsSolved } from '../../lib/activity';
 import { getFolders, addSnippet } from '../../lib/folders';
+import { apiFetch, apiWebSocketUrl } from '../../lib/api';
 import { useToast } from '../../components/Toast';
 
 import { Page, SplitH, RightStack, EditorPane, Btn } from './styles';
@@ -157,7 +158,7 @@ export default function Workspace() {
   // ─── Load vault problem / saved snippet ────────────────────
   useEffect(() => {
     if (!pid) return;
-    fetch(`/api/v1/problems/${pid}`).then(r=>r.ok ? r.json() : null).then(d=>{
+    apiFetch(`/api/v1/problems/${pid}`).then(r=>r.ok ? r.json() : null).then(d=>{
       if (d) {
         setProblem(d);
         setSolutions(d.solutions || []);
@@ -221,8 +222,7 @@ export default function Workspace() {
   const runInteractive = () => {
     if (running || interactive) return;
     setOutput([]); setMetrics(null); setConCollapsed(false); setRunning(true);
-    const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${proto}//${window.location.host}/api/v1/execute/ws`);
+    const ws = new WebSocket(apiWebSocketUrl('/api/v1/execute/ws'));
     wsRef.current = ws;
     let startedAt = 0;
 
@@ -339,7 +339,7 @@ export default function Workspace() {
       const ctxStatement = manual?.statement ?? (problem?.problem_statement || '');
       const ctxTagsArr = manual?.tags ?? (problem?.dsa_tags || []);
       const ctxDifficulty = manual?.difficulty ?? (problem?.difficulty || '');
-      const r = await fetch('/api/v1/upload/save-from-workspace', {
+      const r = await apiFetch('/api/v1/upload/save-from-workspace', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           code, language: lang, hint,
@@ -429,7 +429,7 @@ export default function Workspace() {
   const loadDaily = async () => {
     setDailyOpen(true); setDailyLoading(true); setDailyError(''); setDaily(null);
     try {
-      const r = await fetch('/api/v1/leetcode/daily');
+      const r = await apiFetch('/api/v1/leetcode/daily');
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setDaily(await r.json());
     } catch (e) {
