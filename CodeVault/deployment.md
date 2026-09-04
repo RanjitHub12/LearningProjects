@@ -47,9 +47,9 @@ Run these commands from the repository root:
 Copy-Item .env.example .env
 # Edit .env with real values.
 
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml up -d --build
+docker compose --env-file .env -f docker-compose.production.yml up -d --build
 
-docker compose -f docker-compose.yml -f docker-compose.production.yml ps
+docker compose -f docker-compose.production.yml ps
 Invoke-RestMethod http://localhost:8000/health
 ```
 
@@ -146,7 +146,7 @@ cd frontend
 npm ci
 npm run build
 cd ..
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.production.yml up -d --build
+docker compose --env-file .env -f docker-compose.production.yml up -d --build
 ```
 
 Before updating, record the current image or Git commit and take a database backup. If the smoke test fails, redeploy the previous commit/image and restore the database only if a migration changed its schema.
