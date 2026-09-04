@@ -16,10 +16,11 @@ settings = get_settings()
 
 
 def _engine_options(database_url: str) -> dict:
-    """Translate libpq's sslmode query parameter for asyncpg."""
+    """Translate libpq connection options into asyncpg-compatible settings."""
     url = make_url(database_url)
     query = dict(url.query)
     sslmode = query.pop("sslmode", None)
+    query.pop("channel_binding", None)
     clean_url = url.set(query=query)
     options = {"url": clean_url}
     if sslmode:
